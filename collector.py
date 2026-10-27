@@ -30,7 +30,7 @@ def request_klines(url, symbol, interval):
                 raise ValueError('Respuesta JSON no es una lista de velas')
             return data, uri
         except (URLError, HTTPError, TimeoutError, ValueError) as exc:
-            if attempt == 2: raise RuntimeError(f'Binance no respondió correctamente: {type(exc).__name__}: {exc}') from exc
+            if attempt == 2: raise RuntimeError(f'Binance no respondiÃ³ correctamente: {type(exc).__name__}: {exc}') from exc
             time.sleep(1 + attempt * 2)
 
 def validate(raw, interval_ms, now_ms):
@@ -43,7 +43,7 @@ def validate(raw, interval_ms, now_ms):
         if close_time > now_ms:
             continue
         o, h, l, c, v, quote_v = map(float, (item[1],item[2],item[3],item[4],item[5],item[7]))
-        if not all(map(math.isfinite, (o,h,l,c,v,quote_v))): raise ValueError('Números no finitos')
+        if not all(map(math.isfinite, (o,h,l,c,v,quote_v))): raise ValueError('NÃºmeros no finitos')
         if min(o,h,l,c) <= 0 or v < 0 or quote_v < 0 or h < max(o,c,l) or l > min(o,c,h):
             raise ValueError('OHLCV inconsistente')
         closed.append({'open_ms':t, 'close_ms':close_time, 'open':o, 'high':h,'low':l,'close':c,'volume_base':v, 'volume_quote':quote_v})
@@ -53,7 +53,7 @@ def validate(raw, interval_ms, now_ms):
             raise ValueError('Tiempos no consecutivos o velas duplicadas')
     if closed[-1]['close_ms'] > now_ms: raise ValueError('Vela sin cerrar')
     if now_ms - closed[-1]['close_ms'] > 2 * interval_ms + 120_000:
-        raise ValueError('Las velas están demasiado desactualizadas')
+        raise ValueError('Las velas estÃ¡n demasiado desactualizadas')
     return closed
 
 def ema(values, span):
@@ -92,15 +92,15 @@ def summarise(candles, symbol, market, interval, source, now_ms):
         'volume_average_20':round(sum(volumes[-20:])/20,8),
         'volume_ratio_20':round(last['volume_base']/(sum(volumes[-20:])/20),4) if sum(volumes[-20:]) else None,
         'age_seconds_at_collection':round((now_ms-last['close_ms'])/1000,1),
-        'method':{'ema':'SMA semilla de N cierres, luego EMA alfa=2/(N+1)', 'rsi':'Wilder 14; suavizado recursivo', 'volume':'Volumen base de la última vela cerrada / promedio de 20 velas cerradas'},
+        'method':{'ema':'SMA semilla de N cierres, luego EMA alfa=2/(N+1)', 'rsi':'Wilder 14; suavizado recursivo', 'volume':'Volumen base de la Ãºltima vela cerrada / promedio de 20 velas cerradas'},
     }
 
 def main():
     now_ms=int(time.time()*1000)
     output={'schema':'binance-gpt-market-data-v1','generated_at_utc':iso(now_ms),
             'timezone_for_reports':'America/Costa_Rica','read_only':True,
-            'warning':'Datos de velas cerradas, NO precio live ni señal de trading. No hay acceso a saldos ni posiciones de cuenta.',
-            'results':[], 'errors':[], 'complete':False}
+            'warning':'Datos de velas cerradas, NO precio live ni seÃ±al de trading. No hay acceso a saldos ni posiciones de cuenta.',
+            'results':[], 'errors':[], 'complete':False, 'status':'pending', 'expected_series':12}
     for market, url in MARKETS.items():
         for symbol in SYMBOLS:
             for interval,interval_ms in INTERVALS.items():
@@ -114,12 +114,17 @@ def main():
                     output['errors'].append({**key,'error':str(exc)})
                     print(f'ERROR {key}: {exc}', file=sys.stderr)
     output['complete']=len(output['results'])==12 and not output['errors']
+    output['status']=('complete' if output['complete'] else 'partial' if output['results'] else 'unavailable')
+    output['verified_series']=len(output['results'])
+    output['unavailable_series']=len(output['errors'])
     Path('public').mkdir(exist_ok=True)
     Path('public/latest.json').write_text(json.dumps(output,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
-    html='''<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Binance GPT - Datos verificados</title><style>body{max-width:850px;margin:30px auto;padding:0 16px;font:16px system-ui;line-height:1.5} pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f5f8;padding:14px;border-radius:8px}a{color:#1564bd}</style><h1>Binance GPT: datos públicos</h1><p>Solo datos históricos de velas cerradas; no son recomendaciones financieras ni precios en tiempo real.</p><p><a href="latest.json">Abrir JSON actualizado</a></p><pre id="state">Cargando...</pre><script>fetch('latest.json').then(r=>r.json()).then(d=>document.getElementById('state').textContent=`Actualizado (UTC): ${d.generated_at_utc}\\nMercados válidos: ${d.results.length}/12\\nErrores: ${d.errors.length}\\nCompleto: ${d.complete}`).catch(e=>document.getElementById('state').textContent=e.message)</script></html>'''
+    html='''<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Binance GPT - Datos verificados</title><style>body{max-width:850px;margin:30px auto;padding:0 16px;font:16px system-ui;line-height:1.5} pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f5f8;padding:14px;border-radius:8px}a{color:#1564bd}</style><h1>Binance GPT: datos pÃºblicos</h1><p>Solo datos histÃ³ricos de velas cerradas; no son recomendaciones financieras ni precios en tiempo real.</p><p><a href="latest.json">Abrir JSON actualizado</a></p><pre id="state">Cargando...</pre><script>fetch('latest.json').then(r=>r.json()).then(d=>document.getElementById('state').textContent=`Actualizado (UTC): ${d.generated_at_utc}\\nMercados vÃ¡lidos: ${d.results.length}/12\\nErrores: ${d.errors.length}\\nEstado: ${d.status}\nCompleto: ${d.complete}`).catch(e=>document.getElementById('state').textContent=e.message)</script></html>'''
     Path('public/index.html').write_text(html,encoding='utf-8')
     if not output['complete']:
-        print('La recolección está incompleta; archivo marcado complete=false.',file=sys.stderr)
+        print(f"ATENCION: recolecciÃ³n {output['status']}: {len(output['results'])}/12 series vÃ¡lidas, {len(output['errors'])} errores.", file=sys.stderr)
+    if not output['results']:
+        print('No se publica: cero series verificadas.', file=sys.stderr)
         return 1
     return 0
 
