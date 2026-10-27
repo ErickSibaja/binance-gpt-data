@@ -1,37 +1,63 @@
+
 name: Binance GPT - datos diarios
+
 on:
   schedule:
     - cron: '40 6 * * *'
       timezone: 'America/Costa_Rica'
+
   workflow_dispatch:
+
 permissions:
   contents: read
   pages: write
   id-token: write
+
 concurrency:
   group: pages
   cancel-in-progress: false
+
 jobs:
   collect-and-publish:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
       - name: Pruebas internas de cálculos
         run: python -m unittest discover -s tests -v
+
       - name: Consultar mercado público de Binance
         run: python collector.py
+
+      - name: Revisar estado de datos
+        run: |
+          python - <<'PYCODE'
+          import json
+          with open('public/latest.json', encoding='utf-8') as f:
+              data = json.load(f)
+          print('Estado:', data['status'])
+          print('Series verificadas:', data['verified_series'])
+          print('Series con errores:', data['unavailable_series'])
+          for entry in data['errors']:
+              print('SIN DATOS:', entry['market'], entry['symbol'], entry['interval'], entry['error'])
+          PYCODE
+
       - name: Preparar GitHub Pages
         uses: actions/configure-pages@v5
+
       - name: Publicar archivos de resultados
         uses: actions/upload-pages-artifact@v3
         with:
           path: public
+
       - name: Desplegar GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
