@@ -1,0 +1,84 @@
+
+name: Binance GPT - diagnostico Futuros
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostico:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Probar endpoints publicos
+        shell: bash
+        run: |
+          python - <<'PYCODE'
+          import urllib.request
+          import urllib.error
+          import datetime
+
+          tests = [
+              (
+                  "SPOT - Control",
+                  "https://data-api.binance.vision/api/v3/time"
+              ),
+              (
+                  "FUTUROS - Hora",
+                  "https://fapi.binance.com/fapi/v1/time"
+              ),
+              (
+                  "FUTUROS - Velas BTCUSDT 15m",
+                  "https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=15m&limit=2"
+              )
+          ]
+
+          print("DIAGNOSTICO BINANCE FUTUROS")
+          print(
+              "Hora UTC:",
+              datetime.datetime.now(
+                  datetime.timezone.utc
+              ).isoformat()
+          )
+
+          for name, url in tests:
+              print("\n---", name, "---")
+
+              request = urllib.request.Request(
+                  url,
+                  headers={
+                      "User-Agent": "BinanceGPT-Diagnostic/1.0",
+                      "Accept": "application/json"
+                  }
+              )
+
+              try:
+                  with urllib.request.urlopen(
+                      request, timeout=20
+                  ) as response:
+                      body = response.read(500)
+                      print("HTTP:", response.status)
+                      print(
+                          "Respuesta:",
+                          body.decode(
+                              "utf-8", errors="replace"
+                          )[:300]
+                      )
+
+              except urllib.error.HTTPError as e:
+                  print("HTTP:", e.code)
+                  print(
+                      "Detalle:",
+                      e.read(500).decode(
+                          "utf-8", errors="replace"
+                      )[:300]
+                  )
+
+              except Exception as e:
+                  print("Error:", type(e).__name__)
+                  print("Detalle:", str(e)[:300])
+
+          print("\nDiagnostico finalizado.")
+          PYCODE
