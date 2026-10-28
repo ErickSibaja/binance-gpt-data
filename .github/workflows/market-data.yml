@@ -3,7 +3,7 @@ name: Binance GPT - datos diarios
 
 on:
   schedule:
-    - cron: '40 6 * * *'
+    - cron: '7,22,37,52 * * * *'
       timezone: 'America/Costa_Rica'
 
   workflow_dispatch:
