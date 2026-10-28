@@ -1,6 +1,6 @@
 {
   "schema": "binance-gpt-market-data-v1",
-  "generated_at_utc": "2026-10-28T22:50:14.507000Z",
+  "generated_at_utc": "2026-10-28T22:55:12.787000Z",
   "timezone_for_reports": "America/Costa_Rica",
   "read_only": true,
   "warning": "Datos de velas cerradas, NO precio live ni seÃ±al de trading. No hay acceso a saldos ni posiciones de cuenta.",
@@ -26,7 +26,7 @@
       "rsi14_wilder": 57.1408,
       "volume_average_20": 224.444843,
       "volume_ratio_20": 0.5345,
-      "age_seconds_at_collection": 314.5,
+      "age_seconds_at_collection": 612.8,
       "method": {
         "ema": "SMA semilla de N cierres, luego EMA alfa=2/(N+1)",
         "rsi": "Wilder 14; suavizado recursivo",
@@ -54,7 +54,7 @@
       "rsi14_wilder": 59.3056,
       "volume_average_20": 559.335531,
       "volume_ratio_20": 0.9189,
-      "age_seconds_at_collection": 3014.5,
+      "age_seconds_at_collection": 3312.8,
       "method": {
         "ema": "SMA semilla de N cierres, luego EMA alfa=2/(N+1)",
         "rsi": "Wilder 14; suavizado recursivo",
@@ -82,7 +82,7 @@
       "rsi14_wilder": 58.6164,
       "volume_average_20": 2159.5059085,
       "volume_ratio_20": 1.6591,
-      "age_seconds_at_collection": 10214.5,
+      "age_seconds_at_collection": 10512.8,
       "method": {
         "ema": "SMA semilla de N cierres, luego EMA alfa=2/(N+1)",
         "rsi": "Wilder 14; suavizado recursivo",
@@ -110,7 +110,7 @@
       "rsi14_wilder": 57.1811,
       "volume_average_20": 3474.241715,
       "volume_ratio_20": 0.6393,
-      "age_seconds_at_collection": 314.5,
+      "age_seconds_at_collection": 612.8,
       "method": {
         "ema": "SMA semilla de N cierres, luego EMA alfa=2/(N+1)",
         "rsi": "Wilder 14; suavizado recursivo",
@@ -138,7 +138,7 @@
       "rsi14_wilder": 58.2527,
       "volume_average_20": 7878.794235,
       "volume_ratio_20": 0.9988,
-      "age_seconds_at_collection": 3014.5,
+      "age_seconds_at_collection": 3312.8,
       "method": {
         "ema": "SMA semilla de N cierres, luego EMA alfa=2/(N+1)",
         "rsi": "Wilder 14; suavizado recursivo",
@@ -166,7 +166,7 @@
       "rsi14_wilder": 55.8415,
       "volume_average_20": 30216.30654,
       "volume_ratio_20": 1.529,
-      "age_seconds_at_collection": 10214.5,
+      "age_seconds_at_collection": 10512.8,
       "method": {
         "ema": "SMA semilla de N cierres, luego EMA alfa=2/(N+1)",
         "rsi": "Wilder 14; suavizado recursivo",
