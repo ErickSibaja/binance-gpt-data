@@ -1,7 +1,16 @@
 
 #!/usr/bin/env python3
-"""Auditoria independiente de Binance Spot.
-Solo lectura. No usa credenciales ni realiza operaciones.
+"""Binance GPT - Auditoria independiente v3.
+
+Verifica:
+- EMA 9, 21 y 200
+- RSI 14 Wilder
+- OHLCV y volumen
+- Continuidad de velas
+- Ultima vela cerrada esperada
+- Frescura del JSON
+
+Solo lectura. No utiliza claves ni opera en Binance.
 """
 
 import argparse
@@ -21,6 +30,8 @@ INTERVALS = {
     "4h": 14400,
 }
 
+SYMBOLS = ("BTCUSDT", "ETHUSDT")
+
 DATA_URL = (
     "https://ericksibaja.github.io/"
     "binance-gpt-data/latest.json"
@@ -36,40 +47,54 @@ def fetch(url):
     req = urllib.request.Request(
         url,
         headers={
-            "User-Agent": "binance-gpt-audit/2.0",
+            "User-Agent": "binance-gpt-audit/3.0",
             "Accept": "application/json",
         },
     )
+
     with urllib.request.urlopen(
         req, timeout=25
     ) as response:
         return json.load(response)
 
 
-def epoch_ms(iso):
-    value = dt.datetime.fromisoformat(
-        iso.replace("Z", "+00:00")
+def parse_utc(value):
+    parsed = dt.datetime.fromisoformat(
+        value.replace("Z", "+00:00")
     )
-    return round(value.timestamp() * 1000)
+
+    if parsed.tzinfo is None:
+        raise ValueError("Timestamp sin zona horaria")
+
+    return parsed.astimezone(UTC)
+
+
+def epoch_ms(iso):
+    return round(parse_utc(iso).timestamp() * 1000)
+
+
+def iso_from_ms(value):
+    return dt.datetime.fromtimestamp(
+        value / 1000, UTC
+    ).isoformat()
 
 
 def ema(closes, period):
-    assert len(closes) >= period
+    if len(closes) < period:
+        raise ValueError("Velas insuficientes para EMA")
 
     value = sum(closes[:period]) / period
     alpha = 2.0 / (period + 1)
 
     for close in closes[period:]:
-        value = (
-            alpha * close
-            + (1 - alpha) * value
-        )
+        value = alpha * close + (1 - alpha) * value
 
     return value
 
 
 def rsi_wilder(closes, period=14):
-    assert len(closes) > period
+    if len(closes) <= period:
+        raise ValueError("Velas insuficientes para RSI")
 
     changes = [
         b - a
@@ -86,13 +111,11 @@ def rsi_wilder(closes, period=14):
 
     for change in changes[period:]:
         gain = (
-            gain * (period - 1)
-            + max(change, 0)
+            gain * (period - 1) + max(change, 0)
         ) / period
 
         loss = (
-            loss * (period - 1)
-            + max(-change, 0)
+            loss * (period - 1) + max(-change, 0)
         ) / period
 
     if loss == 0:
@@ -105,45 +128,56 @@ def audit_one(record):
     symbol = record["symbol"]
     interval = record["interval"]
 
-    duration_ms = INTERVALS[interval] * 1000
-    count = int(record["closed_candles_used"])
-
-    last_close_ms = epoch_ms(
-        record["last_closed_candle_close_utc"]
-    )
-
-    last_open_ms = epoch_ms(
-        record["last_closed_candle_open_utc"]
-    )
-
-    # La ventana se determina por fechas,
-    # nunca por el resultado esperado de EMA.
-    first_open_ms = (
-        last_open_ms - (count - 1) * duration_ms
-    )
-
-    params = urllib.parse.urlencode({
-        "symbol": symbol,
-        "interval": interval,
-        "startTime": first_open_ms,
-        "endTime": last_close_ms,
-        "limit": count,
-    })
-
     issues = []
     comparisons = {}
 
     try:
+        duration_ms = INTERVALS[interval] * 1000
+        count = int(record["closed_candles_used"])
+
+        if count < 200 or count > 1000:
+            raise ValueError(
+                "Cantidad de velas fuera del rango admitido"
+            )
+
+        last_open_ms = epoch_ms(
+            record["last_closed_candle_open_utc"]
+        )
+
+        last_close_ms = epoch_ms(
+            record["last_closed_candle_close_utc"]
+        )
+
+        if last_close_ms != (
+            last_open_ms + duration_ms - 1
+        ):
+            raise ValueError(
+                "Duracion incorrecta de ultima vela"
+            )
+
+        first_open_ms = (
+            last_open_ms - (count - 1) * duration_ms
+        )
+
+        params = urllib.parse.urlencode({
+            "symbol": symbol,
+            "interval": interval,
+            "startTime": first_open_ms,
+            "endTime": last_close_ms,
+            "limit": count,
+        })
+
         rows = fetch(API + "?" + params)
 
         if not isinstance(rows, list):
             raise ValueError(
-                "Respuesta no es lista de velas"
+                "Respuesta de Binance no es lista"
             )
 
         if len(rows) != count:
             raise ValueError(
-                f"Esperadas {count}, recibidas {len(rows)}"
+                f"Esperadas {count} velas, "
+                f"recibidas {len(rows)}"
             )
 
         for index, row in enumerate(rows):
@@ -151,33 +185,41 @@ def audit_one(record):
                 first_open_ms + index * duration_ms
             )
 
+            expected_close = (
+                expected_open + duration_ms - 1
+            )
+
             if (
                 int(row[0]) != expected_open
-                or int(row[6])
-                != expected_open + duration_ms - 1
+                or int(row[6]) != expected_close
             ):
                 raise ValueError(
-                    f"Vela faltante o duplicada: {index}"
+                    f"Vela faltante, duplicada "
+                    f"o irregular en indice {index}"
                 )
 
             op, hi, lo, cl, vol = map(
                 float, row[1:6]
             )
 
-            values = (op, hi, lo, cl, vol)
+            values = (
+                op, hi, lo, cl,
+                vol, float(row[7])
+            )
 
             if not all(map(math.isfinite, values)):
                 raise ValueError(
-                    f"Valor no finito: {index}"
+                    f"Valor no finito en vela {index}"
                 )
 
             if not (
                 hi >= max(op, cl, lo)
                 and lo <= min(op, cl, hi)
                 and vol >= 0
+                and float(row[7]) >= 0
             ):
                 raise ValueError(
-                    f"OHLCV inconsistente: {index}"
+                    f"OHLCV inconsistente en vela {index}"
                 )
 
         closes = [
@@ -228,13 +270,14 @@ def audit_one(record):
             calculated = actual[field]
 
             if (
-                not isinstance(
+                isinstance(published, bool)
+                or not isinstance(
                     published, (float, int)
                 )
                 or calculated is None
             ):
                 issues.append(
-                    f"{field}: valor ausente"
+                    f"{field}: valor ausente o invalido"
                 )
                 continue
 
@@ -258,14 +301,12 @@ def audit_one(record):
             ):
                 issues.append(
                     f"{field}: diferencia "
-                    f"{difference:.8f}, "
+                    f"{difference:.8f}; "
                     f"tolerancia {tolerance}"
                 )
 
         return {
-            "series": (
-                f"{symbol} spot {interval}"
-            ),
+            "series": f"{symbol} spot {interval}",
             "status": (
                 "PASS" if not issues else "FAIL"
             ),
@@ -276,15 +317,116 @@ def audit_one(record):
 
     except Exception as exc:
         return {
-            "series": (
-                f"{symbol} spot {interval}"
-            ),
+            "series": f"{symbol} spot {interval}",
             "status": "UNAVAILABLE",
             "issues": [
                 f"{type(exc).__name__}: {exc}"
             ],
             "comparisons": {},
         }
+
+
+def audit_integrity(record, generated):
+    """Verifica la ultima vela esperada al publicar."""
+
+    symbol = record["symbol"]
+    interval = record["interval"]
+
+    duration_ms = INTERVALS[interval] * 1000
+    generated_ms = round(generated.timestamp() * 1000)
+
+    expected_open_ms = (
+        (generated_ms // duration_ms - 1)
+        * duration_ms
+    )
+
+    actual_open_ms = epoch_ms(
+        record["last_closed_candle_open_utc"]
+    )
+
+    actual_close_ms = epoch_ms(
+        record["last_closed_candle_close_utc"]
+    )
+
+    boundary_delay_ms = (
+        generated_ms % duration_ms
+    )
+
+    issues = []
+
+    if actual_close_ms != (
+        actual_open_ms + duration_ms - 1
+    ):
+        issues.append(
+            "Timestamp de cierre inconsistente"
+        )
+
+    if actual_open_ms % duration_ms != 0:
+        issues.append(
+            "Timestamp de apertura desalineado"
+        )
+
+    if actual_close_ms >= generated_ms:
+        issues.append(
+            "Vela aun abierta al generar JSON"
+        )
+
+    candle_lag = (
+        expected_open_ms - actual_open_ms
+    ) // duration_ms
+
+    if issues:
+        status = "FAIL"
+
+    elif actual_open_ms == expected_open_ms:
+        status = "PASS"
+
+    elif (
+        boundary_delay_ms < 60000
+        and actual_open_ms
+        == expected_open_ms - duration_ms
+    ):
+        status = "REVIEW_BOUNDARY"
+        issues.append(
+            "Una vela de retraso durante los "
+            "primeros 60 segundos del intervalo"
+        )
+
+    else:
+        status = "FAIL"
+        issues.append(
+            "Ultima vela diferente a la esperada"
+        )
+
+    return {
+        "series": f"{symbol} spot {interval}",
+        "status": status,
+        "expected_open_utc": iso_from_ms(
+            expected_open_ms
+        ),
+        "actual_open_utc": (
+            record["last_closed_candle_open_utc"]
+        ),
+        "actual_close_utc": (
+            record["last_closed_candle_close_utc"]
+        ),
+        "candle_lag": int(candle_lag),
+        "seconds_since_boundary": round(
+            boundary_delay_ms / 1000, 2
+        ),
+        "issues": issues,
+    }
+
+
+def save_report(path, report):
+    Path(path).write_text(
+        json.dumps(
+            report,
+            indent=2,
+            ensure_ascii=False,
+        ) + "\n",
+        encoding="utf-8",
+    )
 
 
 def main():
@@ -312,10 +454,15 @@ def main():
     try:
         payload = fetch(args.json_url)
 
-        generated = dt.datetime.fromisoformat(
-            payload["generated_at_utc"].replace(
-                "Z", "+00:00"
+        if payload.get("schema") != (
+            "binance-gpt-market-data-v1"
+        ):
+            raise ValueError(
+                "Esquema JSON inesperado"
             )
+
+        generated = parse_utc(
+            payload["generated_at_utc"]
         )
 
         age = (now - generated).total_seconds()
@@ -325,14 +472,18 @@ def main():
             if (
                 r.get("status") == "verified"
                 and r.get("market") == "spot"
-                and r.get("symbol")
-                in ("BTCUSDT", "ETHUSDT")
+                and r.get("symbol") in SYMBOLS
                 and r.get("interval") in INTERVALS
             )
         ]
 
         details = [
             audit_one(record)
+            for record in records
+        ]
+
+        integrity_details = [
+            audit_integrity(record, generated)
             for record in records
         ]
 
@@ -351,23 +502,88 @@ def main():
             for x in details
         )
 
-        uniqueness = (
-            len({
-                x["series"] for x in details
-            }) == len(details)
+        series_keys = {
+            (r["symbol"], r["interval"])
+            for r in records
+        }
+
+        expected_keys = {
+            (symbol, interval)
+            for symbol in SYMBOLS
+            for interval in INTERVALS
+        }
+
+        coverage_ok = (
+            len(records) == 6
+            and series_keys == expected_keys
         )
 
         mathematical_pass = (
-            len(details) == 6
-            and uniqueness
+            coverage_ok
             and n_pass == 6
+            and n_fail == 0
+            and n_unavailable == 0
         )
+
+        integrity_pass_count = sum(
+            x["status"] == "PASS"
+            for x in integrity_details
+        )
+
+        integrity_review_count = sum(
+            x["status"] == "REVIEW_BOUNDARY"
+            for x in integrity_details
+        )
+
+        integrity_fail_count = sum(
+            x["status"] == "FAIL"
+            for x in integrity_details
+        )
+
+        if (
+            coverage_ok
+            and integrity_pass_count == 6
+        ):
+            integrity_status = "PASS"
+
+        elif (
+            coverage_ok
+            and integrity_fail_count == 0
+            and integrity_review_count > 0
+        ):
+            integrity_status = "REVIEW"
+
+        else:
+            integrity_status = "FAIL"
 
         fresh = (
             0 <= age <= args.max_json_age
         )
 
+        futures_errors = sum(
+            e.get("market") == "futures_usdm"
+            for e in payload.get("errors", [])
+        )
+
+        if (
+            mathematical_pass
+            and integrity_status == "PASS"
+            and fresh
+        ):
+            operational_status = "DATA_CHECKS_OK"
+
+        elif (
+            mathematical_pass
+            and integrity_status == "PASS"
+            and not fresh
+        ):
+            operational_status = "REVIEW_ONLY"
+
+        else:
+            operational_status = "NOT_READY"
+
         report = {
+            "audit_version": "3.0",
             "audited_at_utc": now.isoformat(),
             "json_generated_at_utc": (
                 generated.isoformat()
@@ -380,6 +596,10 @@ def main():
                 "PASS" if mathematical_pass
                 else "FAIL"
             ),
+            "integrity_status": integrity_status,
+            "integrity_pass": integrity_pass_count,
+            "integrity_review": integrity_review_count,
+            "integrity_fail": integrity_fail_count,
             "freshness_status": (
                 "CURRENT" if fresh else "STALE"
             ),
@@ -387,65 +607,56 @@ def main():
             "pass": n_pass,
             "fail": n_fail,
             "unavailable": n_unavailable,
-            "futures_errors_declared": sum(
-                e.get("market") == "futures_usdm"
-                for e in payload.get("errors", [])
-            ),
-            "operational_status": (
-                "REVIEW_ONLY"
-                if mathematical_pass and not fresh
-                else "DATA_CHECKS_OK"
-                if mathematical_pass
-                else "NOT_READY"
-            ),
+            "futures_errors_declared": futures_errors,
+            "operational_status": operational_status,
             "note": (
-                "PASS matematico no equivale a "
-                "senal financiera ni precio live. "
+                "Datos Spot de velas cerradas. "
+                "La validacion no constituye "
+                "una senal de trading. "
                 "Futuros no auditados."
             ),
             "details": details,
+            "integrity_details": integrity_details,
         }
 
-        Path(args.output).write_text(
-            json.dumps(
-                report,
-                indent=2,
-                ensure_ascii=False,
-            ) + "\n",
-            encoding="utf-8",
-        )
+        save_report(args.output, report)
 
         print(json.dumps(
             {
                 k: v for k, v in report.items()
-                if k != "details"
+                if k not in (
+                    "details", "integrity_details"
+                )
             },
             indent=2,
             ensure_ascii=False,
         ))
 
-        return 0 if mathematical_pass else 1
+        # El codigo de salida refleja tambien
+        # la integridad de las velas.
+        # La frescura queda como control separado.
+        return 0 if (
+            mathematical_pass
+            and integrity_status == "PASS"
+        ) else 1
 
     except Exception as exc:
         report = {
+            "audit_version": "3.0",
             "mathematical_status": "UNAVAILABLE",
+            "integrity_status": "UNAVAILABLE",
+            "operational_status": "NOT_READY",
             "reason": (
                 f"{type(exc).__name__}: {exc}"
             ),
         }
 
-        Path(args.output).write_text(
-            json.dumps(
-                report,
-                indent=2,
-                ensure_ascii=False,
-            ) + "\n",
-            encoding="utf-8",
-        )
+        save_report(args.output, report)
 
         print(
             json.dumps(
-                report, ensure_ascii=False
+                report,
+                ensure_ascii=False,
             ),
             file=sys.stderr,
         )
