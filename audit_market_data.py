@@ -1,5 +1,9 @@
+
 #!/usr/bin/env python3
-"""Auditoria independiente de latest.json (Spot) sin credenciales ni ordenes."""
+"""Auditoria independiente de Binance Spot.
+Solo lectura. No usa credenciales ni realiza operaciones.
+"""
+
 import argparse
 import datetime as dt
 import json
@@ -9,117 +13,445 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-UTC=dt.timezone.utc
-INTERVALS={'15m':900,'1h':3600,'4h':14400}
-URL='https://data-api.binance.vision/api/v3/klines'
-DATA_URL='https://ericksibaja.github.io/binance-gpt-data/latest.json'
+UTC = dt.timezone.utc
 
-def get_json(url):
-    req=urllib.request.Request(url,headers={'User-Agent':'binance-gpt-audit/1.0','Accept':'application/json'})
-    with urllib.request.urlopen(req,timeout=20) as resp:
-        return json.load(resp)
+INTERVALS = {
+    "15m": 900,
+    "1h": 3600,
+    "4h": 14400,
+}
 
-def ema(values,n):
-    if len(values)<n:return None
-    a=2/(n+1)
-    e=sum(values[:n])/n
-    for v in values[n:]:e=a*v+(1-a)*e
-    return e
+DATA_URL = (
+    "https://ericksibaja.github.io/"
+    "binance-gpt-data/latest.json"
+)
 
-def rsi_wilder(values,n=14):
-    if len(values)<n+1:return None
-    diffs=[values[i]-values[i-1] for i in range(1,len(values))]
-    gain=sum(max(x,0) for x in diffs[:n])/n
-    loss=sum(max(-x,0) for x in diffs[:n])/n
-    for d in diffs[n:]:
-        gain=(gain*(n-1)+max(d,0))/n
-        loss=(loss*(n-1)+max(-d,0))/n
-    if loss==0:return 100.0 if gain>0 else 50.0
-    return 100-100/(1+gain/loss)
+API = (
+    "https://data-api.binance.vision"
+    "/api/v3/klines"
+)
 
-def iso_millis(s):
-    return int(dt.datetime.fromisoformat(s.replace('Z','+00:00')).timestamp()*1000)
 
-def compare(name,actual,expected,tol,findings):
-    if expected is None or actual is None or not math.isfinite(float(expected)) or abs(float(actual)-float(expected))>tol:
-        findings.append(f'{name}: JSON={actual}, calculado={expected}')
+def fetch(url):
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "binance-gpt-audit/2.0",
+            "Accept": "application/json",
+        },
+    )
+    with urllib.request.urlopen(
+        req, timeout=25
+    ) as response:
+        return json.load(response)
 
-def audit_series(record, now, generated):
-    symbol=record['symbol']; interval=record['interval']; s=INTERVALS[interval]
-    desc=f'{symbol} spot {interval}'
-    issues=[]
-    close_ms=iso_millis(record['last_closed_candle_close_utc'])
-    params=urllib.parse.urlencode({'symbol':symbol,'interval':interval,'limit':500,'endTime':close_ms})
+
+def epoch_ms(iso):
+    value = dt.datetime.fromisoformat(
+        iso.replace("Z", "+00:00")
+    )
+    return round(value.timestamp() * 1000)
+
+
+def ema(closes, period):
+    assert len(closes) >= period
+
+    value = sum(closes[:period]) / period
+    alpha = 2.0 / (period + 1)
+
+    for close in closes[period:]:
+        value = (
+            alpha * close
+            + (1 - alpha) * value
+        )
+
+    return value
+
+
+def rsi_wilder(closes, period=14):
+    assert len(closes) > period
+
+    changes = [
+        b - a
+        for a, b in zip(closes, closes[1:])
+    ]
+
+    gain = sum(
+        max(0, x) for x in changes[:period]
+    ) / period
+
+    loss = sum(
+        max(0, -x) for x in changes[:period]
+    ) / period
+
+    for change in changes[period:]:
+        gain = (
+            gain * (period - 1)
+            + max(change, 0)
+        ) / period
+
+        loss = (
+            loss * (period - 1)
+            + max(-change, 0)
+        ) / period
+
+    if loss == 0:
+        return 100.0 if gain > 0 else 50.0
+
+    return 100 - 100 / (1 + gain / loss)
+
+
+def audit_one(record):
+    symbol = record["symbol"]
+    interval = record["interval"]
+
+    duration_ms = INTERVALS[interval] * 1000
+    count = int(record["closed_candles_used"])
+
+    last_close_ms = epoch_ms(
+        record["last_closed_candle_close_utc"]
+    )
+
+    last_open_ms = epoch_ms(
+        record["last_closed_candle_open_utc"]
+    )
+
+    # La ventana se determina por fechas,
+    # nunca por el resultado esperado de EMA.
+    first_open_ms = (
+        last_open_ms - (count - 1) * duration_ms
+    )
+
+    params = urllib.parse.urlencode({
+        "symbol": symbol,
+        "interval": interval,
+        "startTime": first_open_ms,
+        "endTime": last_close_ms,
+        "limit": count,
+    })
+
+    issues = []
+    comparisons = {}
+
     try:
-        rows=get_json(URL+'?'+params)
-        if not isinstance(rows,list) or len(rows)<201:raise ValueError('Menos de 201 velas')
-        # La ventana original consta de 499 velas cerradas: la consulta habitual de 500 incluye la vela en curso.
-        # Con endTime historico obtenemos hasta 500 cerradas. Tomamos las 499 ultimas y replicamos la misma ventana
-        # de tiempo original siempre que el primer cierre coincida con la ventana de origen.
-        # La EMA200 puede diferir si la ventana original de 499 empieza una vela antes. Requerimos OHLCV originales
-        # para un cotejo exacto. Por eso probamos una ventana desplazada y elegimos SOLO coincidencia por los cierres.
-        candidates=[rows[-499:],rows[-500:-1]] if len(rows)>=500 else [rows]
-        matched=None; calc=None
-        for candidate in candidates:
-            if not candidate or int(candidate[-1][6])!=close_ms:continue
-            closes=[float(x[4]) for x in candidate]
-            volumes=[float(x[5]) for x in candidate]
-            values={
-                'last_close':closes[-1],
-                'last_open':float(candidate[-1][1]),
-                'last_high':float(candidate[-1][2]),
-                'last_low':float(candidate[-1][3]),
-                'last_volume_base':volumes[-1],
-                'last_volume_quote':float(candidate[-1][7]),
-                'ema9':ema(closes,9),
-                'ema21':ema(closes,21),
-                'ema200':ema(closes,200),
-                'rsi14_wilder':rsi_wilder(closes),
-                'volume_average_20':sum(volumes[-20:])/20,
-                'volume_ratio_20':volumes[-1]/(sum(volumes[-20:])/20) if sum(volumes[-20:]) else None,
+        rows = fetch(API + "?" + params)
+
+        if not isinstance(rows, list):
+            raise ValueError(
+                "Respuesta no es lista de velas"
+            )
+
+        if len(rows) != count:
+            raise ValueError(
+                f"Esperadas {count}, recibidas {len(rows)}"
+            )
+
+        for index, row in enumerate(rows):
+            expected_open = (
+                first_open_ms + index * duration_ms
+            )
+
+            if (
+                int(row[0]) != expected_open
+                or int(row[6])
+                != expected_open + duration_ms - 1
+            ):
+                raise ValueError(
+                    f"Vela faltante o duplicada: {index}"
+                )
+
+            op, hi, lo, cl, vol = map(
+                float, row[1:6]
+            )
+
+            values = (op, hi, lo, cl, vol)
+
+            if not all(map(math.isfinite, values)):
+                raise ValueError(
+                    f"Valor no finito: {index}"
+                )
+
+            if not (
+                hi >= max(op, cl, lo)
+                and lo <= min(op, cl, hi)
+                and vol >= 0
+            ):
+                raise ValueError(
+                    f"OHLCV inconsistente: {index}"
+                )
+
+        closes = [
+            float(row[4]) for row in rows
+        ]
+
+        volumes = [
+            float(row[5]) for row in rows
+        ]
+
+        avg20 = sum(volumes[-20:]) / 20
+
+        actual = {
+            "last_open": float(rows[-1][1]),
+            "last_high": float(rows[-1][2]),
+            "last_low": float(rows[-1][3]),
+            "last_close": closes[-1],
+            "last_volume_base": volumes[-1],
+            "last_volume_quote": float(rows[-1][7]),
+            "ema9": ema(closes, 9),
+            "ema21": ema(closes, 21),
+            "ema200": ema(closes, 200),
+            "rsi14_wilder": rsi_wilder(closes),
+            "volume_average_20": avg20,
+            "volume_ratio_20": (
+                volumes[-1] / avg20
+                if avg20 > 0 else None
+            ),
+        }
+
+        tolerances = {
+            "last_open": 0.011,
+            "last_high": 0.011,
+            "last_low": 0.011,
+            "last_close": 0.011,
+            "last_volume_base": 0.00002,
+            "last_volume_quote": 0.2,
+            "ema9": 0.0003,
+            "ema21": 0.0003,
+            "ema200": 0.0003,
+            "rsi14_wilder": 0.0003,
+            "volume_average_20": 0.0003,
+            "volume_ratio_20": 0.0003,
+        }
+
+        for field, tolerance in tolerances.items():
+            published = record.get(field)
+            calculated = actual[field]
+
+            if (
+                not isinstance(
+                    published, (float, int)
+                )
+                or calculated is None
+            ):
+                issues.append(
+                    f"{field}: valor ausente"
+                )
+                continue
+
+            difference = abs(
+                float(published) - calculated
+            )
+
+            comparisons[field] = {
+                "published": published,
+                "recalculated": round(
+                    calculated, 10
+                ),
+                "absolute_difference": round(
+                    difference, 10
+                ),
             }
-            # elegir coincidencia de valor publicado para detectar ventana originaria; no sustituye validacion de OHLCV originales
-            if matched is None or abs(values['ema200']-float(record['ema200']))<abs(matched['ema200']-float(record['ema200'])):
-                matched=values;calc=candidate
-        if matched is None:
-            raise ValueError('No se encontro la ultima vela cerrada historica requerida')
-        for key,tol in [('last_close',0.011),('last_open',0.011),('last_high',0.011),('last_low',0.011),('last_volume_base',0.00001),('last_volume_quote',0.1),('ema9',0.0002),('ema21',0.0002),('ema200',0.0002),('rsi14_wilder',0.0002),('volume_average_20',0.0002),('volume_ratio_20',0.0002)]:
-            compare(key,record.get(key),matched.get(key),tol,issues)
-        if len(calc)!=int(record['closed_candles_used']):issues.append('Cantidad de velas diferente')
-        if close_ms>=int(generated.timestamp()*1000):issues.append('Vela posterior a generacion')
-        expected_close=(int(generated.timestamp())//s)*s*1000-1
-        if expected_close-close_ms>120000:
-            issues.append(f'Ultima vela atrasada {round((expected_close-close_ms)/1000)}s respecto a generacion')
-        return {'series':desc,'audit':'PASS' if not issues else 'FAIL','issues':issues,'source':URL}
+
+            if (
+                not math.isfinite(float(published))
+                or difference > tolerance
+            ):
+                issues.append(
+                    f"{field}: diferencia "
+                    f"{difference:.8f}, "
+                    f"tolerancia {tolerance}"
+                )
+
+        return {
+            "series": (
+                f"{symbol} spot {interval}"
+            ),
+            "status": (
+                "PASS" if not issues else "FAIL"
+            ),
+            "candles_checked": count,
+            "issues": issues,
+            "comparisons": comparisons,
+        }
+
     except Exception as exc:
-        return {'series':desc,'audit':'UNAVAILABLE','issues':[f'{type(exc).__name__}: {exc}'],'source':URL}
+        return {
+            "series": (
+                f"{symbol} spot {interval}"
+            ),
+            "status": "UNAVAILABLE",
+            "issues": [
+                f"{type(exc).__name__}: {exc}"
+            ],
+            "comparisons": {},
+        }
+
 
 def main():
-    parser=argparse.ArgumentParser()
-    parser.add_argument('--json-url',default=DATA_URL)
-    parser.add_argument('--max-json-age',type=int,default=300)
-    parser.add_argument('--output',default='audit-result.json')
-    args=parser.parse_args()
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--json-url",
+        default=DATA_URL,
+    )
+
+    parser.add_argument(
+        "--max-json-age",
+        type=int,
+        default=300,
+    )
+
+    parser.add_argument(
+        "--output",
+        default="audit-result.json",
+    )
+
+    args = parser.parse_args()
+    now = dt.datetime.now(UTC)
+
     try:
-        payload=get_json(args.json_url)
-        generated=dt.datetime.fromisoformat(payload['generated_at_utc'].replace('Z','+00:00'))
-        now=dt.datetime.now(UTC)
-        age=(now-generated).total_seconds()
-        entries=[r for r in payload.get('results',[]) if r.get('market')=='spot' and r.get('status')=='verified']
-        findings=[audit_series(r,now,generated) for r in entries]
-        summary={'audited_at_utc':now.isoformat(),'json_generated_at_utc':generated.isoformat(),
-                 'json_age_seconds':round(age,1),'json_current':0<=age<=args.max_json_age,
-                 'declared_verified':payload.get('verified_series'),'spot_series_audited':len(entries),
-                 'pass':sum(x['audit']=='PASS' for x in findings),'fail':sum(x['audit']=='FAIL' for x in findings),
-                 'unavailable':sum(x['audit']=='UNAVAILABLE' for x in findings),
-                 'futures_errors_declared':sum(e.get('market')=='futures_usdm' for e in payload.get('errors',[])),
-                 'status':'PASS' if entries and all(x['audit']=='PASS' for x in findings) and 0<=age<=args.max_json_age else 'NOT_READY',
-                 'details':findings}
-        Path(args.output).write_text(json.dumps(summary,indent=2,ensure_ascii=False)+'\n',encoding='utf8')
-        print(json.dumps(summary,indent=2,ensure_ascii=False))
-        return 0 if summary['status']=='PASS' else 1
+        payload = fetch(args.json_url)
+
+        generated = dt.datetime.fromisoformat(
+            payload["generated_at_utc"].replace(
+                "Z", "+00:00"
+            )
+        )
+
+        age = (now - generated).total_seconds()
+
+        records = [
+            r for r in payload.get("results", [])
+            if (
+                r.get("status") == "verified"
+                and r.get("market") == "spot"
+                and r.get("symbol")
+                in ("BTCUSDT", "ETHUSDT")
+                and r.get("interval") in INTERVALS
+            )
+        ]
+
+        details = [
+            audit_one(record)
+            for record in records
+        ]
+
+        n_pass = sum(
+            x["status"] == "PASS"
+            for x in details
+        )
+
+        n_fail = sum(
+            x["status"] == "FAIL"
+            for x in details
+        )
+
+        n_unavailable = sum(
+            x["status"] == "UNAVAILABLE"
+            for x in details
+        )
+
+        uniqueness = (
+            len({
+                x["series"] for x in details
+            }) == len(details)
+        )
+
+        mathematical_pass = (
+            len(details) == 6
+            and uniqueness
+            and n_pass == 6
+        )
+
+        fresh = (
+            0 <= age <= args.max_json_age
+        )
+
+        report = {
+            "audited_at_utc": now.isoformat(),
+            "json_generated_at_utc": (
+                generated.isoformat()
+            ),
+            "json_age_seconds_at_audit_start": (
+                round(age, 1)
+            ),
+            "json_current": fresh,
+            "mathematical_status": (
+                "PASS" if mathematical_pass
+                else "FAIL"
+            ),
+            "freshness_status": (
+                "CURRENT" if fresh else "STALE"
+            ),
+            "spot_series_audited": len(details),
+            "pass": n_pass,
+            "fail": n_fail,
+            "unavailable": n_unavailable,
+            "futures_errors_declared": sum(
+                e.get("market") == "futures_usdm"
+                for e in payload.get("errors", [])
+            ),
+            "operational_status": (
+                "REVIEW_ONLY"
+                if mathematical_pass and not fresh
+                else "DATA_CHECKS_OK"
+                if mathematical_pass
+                else "NOT_READY"
+            ),
+            "note": (
+                "PASS matematico no equivale a "
+                "senal financiera ni precio live. "
+                "Futuros no auditados."
+            ),
+            "details": details,
+        }
+
+        Path(args.output).write_text(
+            json.dumps(
+                report,
+                indent=2,
+                ensure_ascii=False,
+            ) + "\n",
+            encoding="utf-8",
+        )
+
+        print(json.dumps(
+            {
+                k: v for k, v in report.items()
+                if k != "details"
+            },
+            indent=2,
+            ensure_ascii=False,
+        ))
+
+        return 0 if mathematical_pass else 1
+
     except Exception as exc:
-        print(f'AUDITORIA NO DISPONIBLE: {type(exc).__name__}: {exc}',file=sys.stderr)
+        report = {
+            "mathematical_status": "UNAVAILABLE",
+            "reason": (
+                f"{type(exc).__name__}: {exc}"
+            ),
+        }
+
+        Path(args.output).write_text(
+            json.dumps(
+                report,
+                indent=2,
+                ensure_ascii=False,
+            ) + "\n",
+            encoding="utf-8",
+        )
+
+        print(
+            json.dumps(
+                report, ensure_ascii=False
+            ),
+            file=sys.stderr,
+        )
+
         return 2
 
-if __name__=='__main__':sys.exit(main())
+
+if __name__ == "__main__":
+    sys.exit(main())
