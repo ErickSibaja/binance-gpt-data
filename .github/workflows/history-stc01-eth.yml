@@ -1,0 +1,93 @@
+
+name: Binance GPT - STC01 historial ETH Spot
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  history:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Descargar 14 meses de velas ETH Spot
+        run: |
+          python stc01/fetch_history.py \
+            --symbol ETHUSDT \
+            --start 2025-08-01T00:00:00Z \
+            --end 2026-10-01T00:00:00Z \
+            --outdir stc01/history
+
+      - name: Ejecutar pruebas STC01
+        working-directory: stc01
+        run: python -m unittest -v test_stc01.py
+
+      - name: Ejecutar backtest ETH de 12 meses
+        working-directory: stc01
+        run: |
+          python backtest_stc01.py \
+            --15m history/ETHUSDT_spot_15m.csv \
+            --1h history/ETHUSDT_spot_1h.csv \
+            --4h history/ETHUSDT_spot_4h.csv \
+            --market spot \
+            --evaluation-start 2025-10-01T00:00:00Z \
+            --fee-bps 10 \
+            --slippage-bps 5 \
+            --output history/stc01-eth-spot-result.json
+
+      - name: Auditar operaciones y resultados
+        working-directory: stc01
+        run: |
+          python audit_backtest_stc01.py \
+            --m15 history/ETHUSDT_spot_15m.csv \
+            --h1 history/ETHUSDT_spot_1h.csv \
+            --h4 history/ETHUSDT_spot_4h.csv \
+            --result history/stc01-eth-spot-result.json \
+            --output history/stc01-eth-ledger-audit.json
+
+      - name: Auditar señales tecnicas
+        working-directory: stc01
+        run: |
+          python audit_signals_stc01.py \
+            --m15 history/ETHUSDT_spot_15m.csv \
+            --h1 history/ETHUSDT_spot_1h.csv \
+            --h4 history/ETHUSDT_spot_4h.csv \
+            --result history/stc01-eth-spot-result.json \
+            --output history/stc01-eth-signals-audit.json
+
+      - name: Auditar señales descartadas
+        working-directory: stc01
+        run: |
+          python audit_skipped_stc01.py \
+            --m15 history/ETHUSDT_spot_15m.csv \
+            --h1 history/ETHUSDT_spot_1h.csv \
+            --h4 history/ETHUSDT_spot_4h.csv \
+            --result history/stc01-eth-spot-result.json \
+            --output history/stc01-eth-skipped-audit.json
+
+      - name: Auditar riesgo intraposicion
+        working-directory: stc01
+        run: |
+          python audit_risk_stc01.py \
+            --m15 history/ETHUSDT_spot_15m.csv \
+            --result history/stc01-eth-spot-result.json \
+            --output history/stc01-eth-risk-audit.json
+
+      - name: Guardar resultados y auditorias ETH
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stc01-eth-spot-auditoria-integral
+          path: stc01/history/
+          if-no-files-found: warn
+          retention-days: 14
