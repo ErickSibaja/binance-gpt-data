@@ -3,9 +3,15 @@ name: Binance GPT - auditoria
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
 
 permissions:
   contents: read
+
+concurrency:
+  group: binance-gpt-independent-audit
+  cancel-in-progress: false
 
 jobs:
   audit:
@@ -21,12 +27,17 @@ jobs:
           python-version: '3.12'
 
       - name: Auditar datos de Binance
-        run: python audit_market_data.py
+        run: |
+          python audit_market_data.py \
+            --json-url "https://raw.githubusercontent.com/ErickSibaja/binance-gpt-data/data/latest.json" \
+            --max-json-age 300 \
+            --output audit-result.json
 
       - name: Guardar resultado
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: binance-audit-result
+          name: binance-gpt-audit-result
           path: audit-result.json
           if-no-files-found: warn
+          retention-days: 7
