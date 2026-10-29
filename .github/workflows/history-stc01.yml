@@ -1,0 +1,39 @@
+
+name: Binance GPT - STC01 historial BTC Spot
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  history:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Descargar y verificar velas historicas BTC Spot
+        run: |
+          python stc01/fetch_history.py --symbol BTCUSDT --start 2026-08-01T00:00:00Z --end 2026-10-01T00:00:00Z --outdir stc01/history
+
+      - name: Ejecutar pruebas del motor STC01
+        working-directory: stc01
+        run: python -m unittest -v test_stc01.py
+
+      - name: Ejecutar backtest sobre historial real
+        working-directory: stc01
+        run: |
+          python backtest_stc01.py --15m history/BTCUSDT_spot_15m.csv --1h history/BTCUSDT_spot_1h.csv --4h history/BTCUSDT_spot_4h.csv --market spot --fee-bps 10 --slippage-bps 5 --output history/stc01-btc-spot-result.json
+
+      - name: Conservar resultados sin modificar data
+        uses: actions/upload-artifact@v4
+        with:
+          name: stc01-btc-spot-historical-backtest
+          path: stc01/history/
+          retention-days: 14
