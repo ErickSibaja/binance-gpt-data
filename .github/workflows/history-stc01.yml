@@ -55,11 +55,21 @@ jobs:
             --result history/stc01-btc-spot-result.json \
             --output history/stc01-ledger-audit.json
 
-      - name: Guardar resultados y auditoria
+      - name: Auditar señales técnicas y sincronización
+        working-directory: stc01
+        run: |
+          python audit_signals_stc01.py \
+            --m15 history/BTCUSDT_spot_15m.csv \
+            --h1 history/BTCUSDT_spot_1h.csv \
+            --h4 history/BTCUSDT_spot_4h.csv \
+            --result history/stc01-btc-spot-result.json \
+            --output history/stc01-signals-audit.json
+
+      - name: Guardar resultados y auditorías
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: stc01-btc-spot-backtest-auditado
+          name: stc01-btc-spot-auditoria-integral
           path: stc01/history/
           if-no-files-found: warn
           retention-days: 14
