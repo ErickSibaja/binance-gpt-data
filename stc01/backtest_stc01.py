@@ -2,11 +2,12 @@
 import argparse
 import json
 from pathlib import Path
+from datetime import datetime, timezone
 from strategy_stc01 import load_csv, aligned_signals
 
 
 def run(b15,b1,b4,market='spot',starting_equity=10000.0,risk_fraction=0.005,
-        fee_bps=10.0,slippage_bps=5.0, max_holding_bars=96):
+        fee_bps=10.0,slippage_bps=5.0, max_holding_bars=96, evaluation_start=None):
     if starting_equity<=0 or not 0<risk_fraction<=0.05 or fee_bps<0 or slippage_bps<0:
         raise ValueError('invalid capital/risk/cost parameters')
     if market not in ('spot','bitget_usdt_futures'):
@@ -22,6 +23,7 @@ def run(b15,b1,b4,market='spot',starting_equity=10000.0,risk_fraction=0.005,
     fee=fee_bps/10000
     for idx, side, stop in signals:
         ent=idx+1
+        if evaluation_start is not None and b15[ent].t < evaluation_start: continue
         if ent<next_free or ent>=len(b15):continue
         direction=1 if side=='LONG' else -1
         entry=b15[ent].o*(1+slip*direction)
@@ -89,10 +91,19 @@ def main():
     ap.add_argument('--slippage-bps',type=float,default=5)
     ap.add_argument('--capital',type=float,default=10000)
     ap.add_argument('--output',default='stc01-result.json')
+    ap.add_argument('--evaluation-start',default=None,help='UTC start of scoring period; older bars only warm up indicators')
     args=ap.parse_args()
     data={tf:load_csv(getattr(args,tf),tf) for tf in ('15m','1h','4h')}
+    evaluation_start=None
+    if args.evaluation_start:
+        evaluation_start=datetime.fromisoformat(args.evaluation_start.replace('Z','+00:00'))
+        if evaluation_start.tzinfo is None or evaluation_start.utcoffset().total_seconds()!=0:
+            raise ValueError('evaluation start must be UTC')
     result=run(data['15m'],data['1h'],data['4h'],market=args.market,fee_bps=args.fee_bps,
-               slippage_bps=args.slippage_bps,starting_equity=args.capital)
+               slippage_bps=args.slippage_bps,starting_equity=args.capital,evaluation_start=evaluation_start)
+    result['evaluation_start_utc']=args.evaluation_start
+    result['historical_first_utc']=data['15m'][0].t.isoformat()
+    result['historical_end_exclusive_utc']=(data['15m'][-1].close_time('15m')).isoformat()
     Path(args.output).write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8')
     print(json.dumps({k:v for k,v in result.items() if k!='trades'},indent=2))
     print('Written:',args.output)
