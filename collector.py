@@ -213,7 +213,7 @@ def validate_ohlcv(candles, interval_ms, now_ms, minimum):
 
         if difference != interval_ms:
             raise ValueError(
-                "Velas duplicadas o discontinuidad temporal"
+                "Tiempos no consecutivos o velas duplicadas"
             )
 
     last = candles[-1]
