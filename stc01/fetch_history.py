@@ -55,7 +55,7 @@ def run(symbol,start_utc,end_utc,outdir):
         if dt.tzinfo is None: raise ValueError('UTC timezone required: use Z')
         return int(dt.timestamp()*1000)
     begin=parse(start_utc); finish=parse(end_utc)
-    if finish<=begin or finish-begin>180*86400000: raise ValueError('Choose period between 1 minute and 180 days')
+    if finish<=begin or finish-begin>500*86400000: raise ValueError('Choose period between 1 minute and 180 days')
     current=int(time.time()*1000)
     for tf,ms in INTERVALS.items():
         if begin%ms or finish%ms: raise ValueError(f'Start/end must align with {tf} UTC boundary; use 00:00Z or 04:00Z')
