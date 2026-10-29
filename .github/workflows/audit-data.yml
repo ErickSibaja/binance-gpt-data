@@ -26,70 +26,62 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Congelar instantanea del JSON
-        shell: bash
-        run: |
-          python - <<'PYCODE'
-          import hashlib
-          import json
-          import time
-          import urllib.request
-          from pathlib import Path
+      - name: Congelar instantanea de mercado
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const { owner, repo } = context.repo;
 
-          base = (
-              "https://raw.githubusercontent.com/"
-              "ErickSibaja/binance-gpt-data/"
-              "data/latest.json"
-          )
+            const ref = await github.rest.git.getRef({
+              owner,
+              repo,
+              ref: 'heads/data'
+            });
 
-          url = base + "?cb=" + str(time.time_ns())
+            const commit = ref.data.object.sha;
 
-          req = urllib.request.Request(
-              url,
-              headers={
-                  "User-Agent": "BinanceGPTAudit/5.0",
-                  "Accept": "application/json",
-              },
-          )
+            const response = await github.rest.repos.getContent({
+              owner,
+              repo,
+              path: 'latest.json',
+              ref: commit
+            });
 
-          with urllib.request.urlopen(
-              req, timeout=30
-          ) as response:
-              raw = response.read()
+            if (
+              Array.isArray(response.data) ||
+              response.data.encoding !== 'base64' ||
+              !response.data.content
+            ) {
+              throw new Error('No se pudo leer latest.json');
+            }
 
-          data = json.loads(raw)
+            const bytes = Buffer.from(
+              response.data.content.replace(/\s/g, ''),
+              'base64'
+            );
 
-          if data.get("schema") != (
-              "binance-gpt-market-data-v1"
-          ):
-              raise ValueError(
-                  "Esquema del JSON inesperado"
-              )
+            const data = JSON.parse(bytes.toString('utf8'));
 
-          if not data.get("generated_at_utc"):
-              raise ValueError(
-                  "JSON sin fecha de generacion"
-              )
+            if (
+              data.schema !== 'binance-gpt-market-data-v1' ||
+              !data.generated_at_utc ||
+              !Array.isArray(data.results) ||
+              !Array.isArray(data.bitget_futures_results)
+            ) {
+              throw new Error('Esquema de mercado invalido');
+            }
 
-          if not isinstance(
-              data.get("bitget_futures_results"), list
-          ):
-              raise ValueError(
-                  "JSON sin bloque Bitget"
-              )
+            fs.writeFileSync('audit-input.json', bytes);
+            fs.writeFileSync('audit-source-commit.txt', commit);
 
-          Path("audit-input.json").write_bytes(raw)
-
-          digest = hashlib.sha256(raw).hexdigest()
-
-          print(
-              "Instantanea congelada:",
-              data["generated_at_utc"]
-          )
-
-          print("SHA-256:", digest)
-          print("Bytes:", len(raw))
-          PYCODE
+            core.info(
+              'Instantanea: ' + data.generated_at_utc
+            );
+            core.info(
+              'Commit de origen: ' + commit
+            );
 
       - name: Auditar datos de Binance
         shell: bash
@@ -99,198 +91,169 @@ jobs:
             --max-json-age 300 \
             --output audit-result.json
 
-      - name: Publicar certificado en rama data
+      - name: Publicar instantanea y certificado
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
             const crypto = require('crypto');
+            const { owner, repo } = context.repo;
 
-            const snapshot = fs.readFileSync(
-              'audit-input.json'
-            );
+            const snapshotBytes =
+              fs.readFileSync('audit-input.json');
 
-            const reportBytes = fs.readFileSync(
-              'audit-result.json'
-            );
+            const reportBytes =
+              fs.readFileSync('audit-result.json');
 
-            const data = JSON.parse(
-              snapshot.toString('utf8')
-            );
+            const snapshot =
+              JSON.parse(snapshotBytes.toString('utf8'));
 
-            const report = JSON.parse(
-              reportBytes.toString('utf8')
-            );
+            const report =
+              JSON.parse(reportBytes.toString('utf8'));
 
-            const snapshotHash = crypto
-              .createHash('sha256')
-              .update(snapshot)
-              .digest('hex');
+            const sha256 = bytes =>
+              crypto.createHash('sha256')
+                .update(bytes)
+                .digest('hex');
 
-            const reportHash = crypto
-              .createHash('sha256')
-              .update(reportBytes)
-              .digest('hex');
+            const snapshotHash = sha256(snapshotBytes);
+            const reportHash = sha256(reportBytes);
 
-            const spotOK =
+            const timestampsMatch =
+              Number.isFinite(
+                Date.parse(snapshot.generated_at_utc)
+              ) &&
+              Date.parse(snapshot.generated_at_utc) ===
+              Date.parse(report.json_generated_at_utc);
+
+            const spotPass =
               report.spot_series_audited === 6 &&
               report.spot_mathematical_status === 'PASS' &&
               report.spot_integrity_status === 'PASS';
 
-            const bitgetOK =
+            const bitgetPass =
               report.bitget_futures_series_audited === 6 &&
               report.bitget_futures_mathematical_status === 'PASS' &&
               report.bitget_futures_integrity_status === 'PASS';
 
-            const generatedMatches =
-              Date.parse(report.json_generated_at_utc) ===
-              Date.parse(data.generated_at_utc);
-
-            const valid =
-              spotOK &&
-              bitgetOK &&
-              generatedMatches &&
-              report.freshness_status === 'CURRENT' &&
+            const passed =
+              report.audit_version === '4.0' &&
               report.mathematical_status === 'PASS' &&
-              report.integrity_status === 'PASS';
+              report.integrity_status === 'PASS' &&
+              report.freshness_status === 'CURRENT' &&
+              report.operational_status === 'DATA_CHECKS_OK' &&
+              timestampsMatch &&
+              spotPass &&
+              bitgetPass;
 
-            if (!valid) {
-              core.setFailed(
-                'Auditoria no apta para certificar'
+            if (!passed) {
+              throw new Error(
+                'Auditoria no aprobada: no se publica'
               );
-              return;
             }
 
-            const { owner, repo } = context.repo;
-            const branch = 'data';
-
-            const refResponse = await github.rest.git.getRef({
-              owner,
-              repo,
-              ref: `heads/${branch}`
-            });
-
-            const currentCommit = refResponse.data.object.sha;
-
-            const fileResponse = await github.rest.repos.getContent({
-              owner,
-              repo,
-              path: 'latest.json',
-              ref: currentCommit
-            });
-
-            if (
-              Array.isArray(fileResponse.data) ||
-              !fileResponse.data.content
-            ) {
-              core.setFailed(
-                'No se pudo verificar latest.json'
-              );
-              return;
-            }
-
-            const publishedBytes = Buffer.from(
-              fileResponse.data.content.replace(/\n/g, ''),
-              'base64'
-            );
-
-            const publishedHash = crypto
-              .createHash('sha256')
-              .update(publishedBytes)
-              .digest('hex');
-
-            if (publishedHash !== snapshotHash) {
-              core.warning(
-                'El recolector publico otra instantanea. ' +
-                'No se reemplaza el certificado anterior.'
-              );
-              return;
-            }
+            const originCommit = fs
+              .readFileSync('audit-source-commit.txt', 'utf8')
+              .trim();
 
             const certificate = {
               schema: 'binance-gpt-audit-certificate-v1',
               certificate_status: 'PASS',
               independent_audit: true,
-              audit_version: report.audit_version,
+              audit_version: '4.0',
               audited_at_utc: report.audited_at_utc,
-              json_generated_at_utc: data.generated_at_utc,
+              json_generated_at_utc:
+                snapshot.generated_at_utc,
               snapshot_sha256: snapshotHash,
               audit_report_sha256: reportHash,
-              snapshot_source:
-                'https://raw.githubusercontent.com/' +
-                'ErickSibaja/binance-gpt-data/' +
-                'data/latest.json',
-              spot_series_audited:
-                report.spot_series_audited,
-              spot_mathematical_status:
-                report.spot_mathematical_status,
-              spot_integrity_status:
-                report.spot_integrity_status,
-              bitget_futures_series_audited:
-                report.bitget_futures_series_audited,
-              bitget_futures_mathematical_status:
-                report.bitget_futures_mathematical_status,
-              bitget_futures_integrity_status:
-                report.bitget_futures_integrity_status,
+              audited_snapshot_path: 'audited-latest.json',
+              source_branch_commit: originCommit,
+              spot_series_audited: 6,
+              spot_mathematical_status: 'PASS',
+              spot_integrity_status: 'PASS',
+              bitget_futures_series_audited: 6,
+              bitget_futures_mathematical_status: 'PASS',
+              bitget_futures_integrity_status: 'PASS',
               binance_futures_audited: false,
               binance_futures_errors_declared:
                 report.binance_futures_errors_declared,
-              freshness_at_audit:
-                report.freshness_status,
+              freshness_at_audit: 'CURRENT',
               note:
-                'Certifica solamente la instantanea ' +
-                'identificada por snapshot_sha256. ' +
-                'No certifica futuras actualizaciones.'
+                'Certifica exclusivamente audited-latest.json ' +
+                'cuando su SHA-256 coincida. No certifica ' +
+                'latest.json ni actualizaciones posteriores.'
             };
 
-            const content = JSON.stringify(
-              certificate, null, 2
-            ) + '\n';
+            const certificateText =
+              JSON.stringify(certificate, null, 2) + '\n';
 
             fs.writeFileSync(
               'audit-latest.json',
-              content,
-              'utf8'
+              certificateText
             );
 
-            const commitResponse = await github.rest.git.getCommit({
+            const branch = 'data';
+
+            const ref = await github.rest.git.getRef({
               owner,
               repo,
-              commit_sha: currentCommit
+              ref: `heads/${branch}`
             });
 
-            const treeResponse = await github.rest.git.createTree({
+            const parentSha = ref.data.object.sha;
+
+            const parent = await github.rest.git.getCommit({
               owner,
               repo,
-              base_tree: commitResponse.data.tree.sha,
-              tree: [{
-                path: 'audit-latest.json',
-                mode: '100644',
-                type: 'blob',
-                content
-              }]
+              commit_sha: parentSha
             });
 
-            const newCommit = await github.rest.git.createCommit({
+            // Ambos archivos se agregan al mismo arbol.
+            // latest.json permanece intacto.
+            const tree = await github.rest.git.createTree({
               owner,
               repo,
-              message: 'Publish audited snapshot certificate',
-              tree: treeResponse.data.sha,
-              parents: [currentCommit]
+              base_tree: parent.data.tree.sha,
+              tree: [
+                {
+                  path: 'audited-latest.json',
+                  mode: '100644',
+                  type: 'blob',
+                  content: snapshotBytes.toString('utf8')
+                },
+                {
+                  path: 'audit-latest.json',
+                  mode: '100644',
+                  type: 'blob',
+                  content: certificateText
+                }
+              ]
+            });
+
+            const commit = await github.rest.git.createCommit({
+              owner,
+              repo,
+              message:
+                'Publish audited snapshot and matching certificate',
+              tree: tree.data.sha,
+              parents: [parentSha]
             });
 
             await github.rest.git.updateRef({
               owner,
               repo,
               ref: `heads/${branch}`,
-              sha: newCommit.data.sha,
+              sha: commit.data.sha,
               force: false
             });
 
+            core.info('PUBLICACION AUDITADA: OK');
+            core.info('Commit: ' + commit.data.sha);
+            core.info('SHA256: ' + snapshotHash);
             core.info(
-              'Certificado publicado. SHA-256: ' +
-              snapshotHash
+              'Instantanea auditada: ' +
+              snapshot.generated_at_utc
             );
 
       - name: Guardar resultado
@@ -301,6 +264,7 @@ jobs:
           path: |
             audit-input.json
             audit-result.json
+            audited-latest.json
             audit-latest.json
           if-no-files-found: warn
           retention-days: 7
