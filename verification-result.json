@@ -1,0 +1,32 @@
+{
+  "schema": "binance-gpt-verification-v3",
+  "verification_status": "CURRENT_NOT_CERTIFIED",
+  "historical_audit_status": "PASS",
+  "current_snapshot_certified": false,
+  "verified_at_utc": "2026-10-29T04:58:37.497Z",
+  "verified_branch_commit": "022d0dde3877b52c2ea51938267ab5a3fb84d759",
+  "latest_generated_at_utc": "2026-10-29T04:55:45.496000Z",
+  "audited_generated_at_utc": "2026-10-29T04:35:46.883000Z",
+  "latest_age_seconds": 172,
+  "audited_age_seconds": 1370.6,
+  "latest_freshness_at_verification": "CURRENT",
+  "checks": {
+    "schemas_ok": true,
+    "historical_hash_matches": true,
+    "historical_timestamp_matches": true,
+    "certificate_pass": true,
+    "historical_coverage_ok": true,
+    "latest_coverage_ok": true,
+    "latest_hash_matches_audited": false,
+    "latest_current": true,
+    "audited_current": false,
+    "audit_timestamp_valid": true
+  },
+  "hashes": {
+    "latest_sha256": "085bdfb9044dd62e80a61ca8a5314e6023b184824fa17a4be2552ea950eaed71",
+    "audited_sha256": "2019ada9028d57eadf88f8f8f0fe4e5b24df65116b4539098de2646a8904fa0c",
+    "certificate_snapshot_sha256": "2019ada9028d57eadf88f8f8f0fe4e5b24df65116b4539098de2646a8904fa0c",
+    "certificate_file_sha256": "9dd5e60545006a7e16d90ffe21c444db3df7a52cf51fa659f2106d4766093621"
+  },
+  "note": "Estado observado en verified_at_utc. No constituye certificacion permanente. Para usar datos actuales se requiere una verificacion nueva de hashes, integridad y frescura."
+}
