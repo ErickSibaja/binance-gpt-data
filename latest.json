@@ -1,6 +1,6 @@
 {
   "schema": "binance-gpt-market-data-v1",
-  "generated_at_utc": "2026-10-29T13:35:46.841000Z",
+  "generated_at_utc": "2026-10-29T13:40:52.493000Z",
   "timezone_for_reports": "America/Costa_Rica",
   "read_only": true,
   "warning": "Datos de velas cerradas, no precios live. Binance Spot y Bitget Futuros son mercados distintos. Sin acceso a cuentas u operaciones.",
@@ -27,7 +27,7 @@
       "rsi14_wilder": 55.8281,
       "volume_average_20": 107.1753625,
       "volume_ratio_20": 1.5576,
-      "age_seconds_at_collection": 314.3,
+      "age_seconds_at_collection": 621.8,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
@@ -56,7 +56,7 @@
       "rsi14_wilder": 41.4977,
       "volume_average_20": 581.525749,
       "volume_ratio_20": 0.7034,
-      "age_seconds_at_collection": 2114.3,
+      "age_seconds_at_collection": 2421.8,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
@@ -85,7 +85,7 @@
       "rsi14_wilder": 45.0533,
       "volume_average_20": 2251.620521,
       "volume_ratio_20": 0.8517,
-      "age_seconds_at_collection": 5714.3,
+      "age_seconds_at_collection": 6021.8,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
@@ -114,7 +114,7 @@
       "rsi14_wilder": 59.4484,
       "volume_average_20": 1295.657275,
       "volume_ratio_20": 1.0851,
-      "age_seconds_at_collection": 314.3,
+      "age_seconds_at_collection": 621.8,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
@@ -143,7 +143,7 @@
       "rsi14_wilder": 44.3287,
       "volume_average_20": 8799.86928,
       "volume_ratio_20": 0.6346,
-      "age_seconds_at_collection": 2114.3,
+      "age_seconds_at_collection": 2421.8,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
@@ -172,7 +172,7 @@
       "rsi14_wilder": 44.8761,
       "volume_average_20": 31522.019815,
       "volume_ratio_20": 0.6958,
-      "age_seconds_at_collection": 5714.3,
+      "age_seconds_at_collection": 6021.8,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
@@ -244,7 +244,7 @@
       "rsi14_wilder": 55.7588,
       "volume_average_20": 185.69117,
       "volume_ratio_20": 1.9115,
-      "age_seconds_at_collection": 314.3,
+      "age_seconds_at_collection": 621.8,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
@@ -275,7 +275,7 @@
       "rsi14_wilder": 41.5518,
       "volume_average_20": 1416.6697,
       "volume_ratio_20": 0.604,
-      "age_seconds_at_collection": 2114.3,
+      "age_seconds_at_collection": 2421.8,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
@@ -306,7 +306,7 @@
       "rsi14_wilder": 44.9844,
       "volume_average_20": 5008.821265,
       "volume_ratio_20": 0.6251,
-      "age_seconds_at_collection": 5714.3,
+      "age_seconds_at_collection": 6021.8,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
@@ -337,7 +337,7 @@
       "rsi14_wilder": 59.6132,
       "volume_average_20": 6027.4815,
       "volume_ratio_20": 1.0885,
-      "age_seconds_at_collection": 314.3,
+      "age_seconds_at_collection": 621.8,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
@@ -368,7 +368,7 @@
       "rsi14_wilder": 44.1781,
       "volume_average_20": 36325.655,
       "volume_ratio_20": 0.8181,
-      "age_seconds_at_collection": 2114.3,
+      "age_seconds_at_collection": 2421.8,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
@@ -399,7 +399,7 @@
       "rsi14_wilder": 44.7525,
       "volume_average_20": 112310.418,
       "volume_ratio_20": 0.8435,
-      "age_seconds_at_collection": 5714.3,
+      "age_seconds_at_collection": 6021.8,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
