@@ -3,11 +3,12 @@
   "certificate_status": "PASS",
   "independent_audit": true,
   "audit_version": "4.0",
-  "audited_at_utc": "2026-10-29T03:59:43.206288+00:00",
-  "json_generated_at_utc": "2026-10-29T03:55:44.079000Z",
-  "snapshot_sha256": "d2afc8857c70d2b1e56ff4923155f348cfa96e9ea32af4d42b0ef48bf4a13417",
-  "audit_report_sha256": "ebac617e9dc80d4ad258264f9ec038694503730fed0d4e8514f0b4444b41cbe9",
-  "snapshot_source": "https://raw.githubusercontent.com/ErickSibaja/binance-gpt-data/data/latest.json",
+  "audited_at_utc": "2026-10-29T04:39:22.756495+00:00",
+  "json_generated_at_utc": "2026-10-29T04:35:46.883000Z",
+  "snapshot_sha256": "2019ada9028d57eadf88f8f8f0fe4e5b24df65116b4539098de2646a8904fa0c",
+  "audit_report_sha256": "f0037317ae4c7e23f795a7f8ffea28ba1cf56dea8218c26b76d3c39a525505be",
+  "audited_snapshot_path": "audited-latest.json",
+  "source_branch_commit": "cf762aeb713f0d1451b5d9c0a703b6ada377de4e",
   "spot_series_audited": 6,
   "spot_mathematical_status": "PASS",
   "spot_integrity_status": "PASS",
@@ -17,5 +18,5 @@
   "binance_futures_audited": false,
   "binance_futures_errors_declared": 6,
   "freshness_at_audit": "CURRENT",
-  "note": "Certifica solamente la instantanea identificada por snapshot_sha256. No certifica futuras actualizaciones."
+  "note": "Certifica exclusivamente audited-latest.json cuando su SHA-256 coincida. No certifica latest.json ni actualizaciones posteriores."
 }
