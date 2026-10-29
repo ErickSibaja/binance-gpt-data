@@ -12,28 +12,44 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Configurar Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Descargar y verificar velas historicas BTC Spot
+      - name: Descargar 14 meses de velas BTC Spot
         run: |
-          python stc01/fetch_history.py --symbol BTCUSDT --start 2026-08-01T00:00:00Z --end 2026-10-01T00:00:00Z --outdir stc01/history
+          python stc01/fetch_history.py \
+            --symbol BTCUSDT \
+            --start 2025-08-01T00:00:00Z \
+            --end 2026-10-01T00:00:00Z \
+            --outdir stc01/history
 
-      - name: Ejecutar pruebas del motor STC01
+      - name: Ejecutar pruebas STC01
         working-directory: stc01
         run: python -m unittest -v test_stc01.py
 
-      - name: Ejecutar backtest sobre historial real
+      - name: Ejecutar backtest de 12 meses
         working-directory: stc01
         run: |
-          python backtest_stc01.py --15m history/BTCUSDT_spot_15m.csv --1h history/BTCUSDT_spot_1h.csv --4h history/BTCUSDT_spot_4h.csv --market spot --fee-bps 10 --slippage-bps 5 --output history/stc01-btc-spot-result.json
+          python backtest_stc01.py \
+            --15m history/BTCUSDT_spot_15m.csv \
+            --1h history/BTCUSDT_spot_1h.csv \
+            --4h history/BTCUSDT_spot_4h.csv \
+            --market spot \
+            --evaluation-start 2025-10-01T00:00:00Z \
+            --fee-bps 10 \
+            --slippage-bps 5 \
+            --output history/stc01-btc-spot-result.json
 
-      - name: Conservar resultados sin modificar data
+      - name: Guardar resultados historicos
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: stc01-btc-spot-historical-backtest
+          name: stc01-btc-spot-backtest-12-meses
           path: stc01/history/
+          if-no-files-found: warn
           retention-days: 14
