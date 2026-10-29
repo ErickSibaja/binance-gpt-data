@@ -21,191 +21,207 @@ jobs:
             const crypto = require('crypto');
             const { owner, repo } = context.repo;
 
-            const now = new Date();
-            const checks = {};
-            const reasons = [];
-
             const ref = await github.rest.git.getRef({
               owner,
               repo,
               ref: 'heads/data'
             });
 
-            const commitSha = ref.data.object.sha;
+            const commit = ref.data.object.sha;
 
-            async function readFile(path) {
-              const response =
-                await github.rest.repos.getContent({
-                  owner,
-                  repo,
-                  path,
-                  ref: commitSha
-                });
+            async function read(path) {
+              const response = await github.rest.repos.getContent({
+                owner,
+                repo,
+                path,
+                ref: commit
+              });
+
+              const item = response.data;
 
               if (
-                Array.isArray(response.data) ||
-                response.data.encoding !== 'base64' ||
-                !response.data.content
+                Array.isArray(item) ||
+                item.encoding !== 'base64' ||
+                !item.content
               ) {
-                throw new Error(
-                  'No se pudo leer ' + path
-                );
+                throw new Error('Archivo invalido: ' + path);
               }
 
               return Buffer.from(
-                response.data.content.replace(/\s/g, ''),
+                item.content.replace(/\s/g, ''),
                 'base64'
               );
             }
 
-            const snapshotBytes =
-              await readFile('latest.json');
+            const latestBytes = await read('latest.json');
+            const auditedBytes = await read('audited-latest.json');
+            const certificateBytes = await read('audit-latest.json');
 
-            const certificateBytes =
-              await readFile('audit-latest.json');
+            const latest = JSON.parse(latestBytes.toString('utf8'));
+            const audited = JSON.parse(auditedBytes.toString('utf8'));
+            const cert = JSON.parse(certificateBytes.toString('utf8'));
 
-            const snapshot =
-              JSON.parse(snapshotBytes.toString('utf8'));
-
-            const certificate =
-              JSON.parse(certificateBytes.toString('utf8'));
-
-            const calculatedHash = crypto
+            const hash = bytes => crypto
               .createHash('sha256')
-              .update(snapshotBytes)
+              .update(bytes)
               .digest('hex');
 
-            const hashMatches =
-              calculatedHash ===
-              certificate.snapshot_sha256;
+            const latestHash = hash(latestBytes);
+            const auditedHash = hash(auditedBytes);
 
-            checks.hash_matches = hashMatches;
+            const now = Date.now();
+            const latestDate = Date.parse(latest.generated_at_utc);
+            const auditedDate = Date.parse(audited.generated_at_utc);
 
-            checks.schema_ok =
-              snapshot.schema ===
-                'binance-gpt-market-data-v1' &&
-              certificate.schema ===
-                'binance-gpt-audit-certificate-v1';
+            const latestAge = (now - latestDate) / 1000;
+            const auditedAge = (now - auditedDate) / 1000;
 
-            checks.timestamp_matches =
-              snapshot.generated_at_utc ===
-              certificate.json_generated_at_utc;
+            const latestCurrent =
+              Number.isFinite(latestAge) &&
+              latestAge >= 0 &&
+              latestAge <= 300;
 
-            const generatedMs =
-              Date.parse(snapshot.generated_at_utc);
+            const auditedCurrent =
+              Number.isFinite(auditedAge) &&
+              auditedAge >= 0 &&
+              auditedAge <= 300;
 
-            const ageSeconds =
-              (now.getTime() - generatedMs) / 1000;
+            const schemasOK =
+              latest.schema === 'binance-gpt-market-data-v1' &&
+              audited.schema === 'binance-gpt-market-data-v1' &&
+              cert.schema === 'binance-gpt-audit-certificate-v1';
 
-            checks.freshness_ok =
-              Number.isFinite(ageSeconds) &&
-              ageSeconds >= 0 &&
-              ageSeconds <= 300;
+            const historicalHashMatches =
+              auditedHash === cert.snapshot_sha256;
+
+            const historicalDateMatches =
+              audited.generated_at_utc ===
+              cert.json_generated_at_utc;
+
+            const certificatePass =
+              cert.certificate_status === 'PASS' &&
+              cert.independent_audit === true &&
+              cert.audit_version === '4.0' &&
+              cert.audited_snapshot_path === 'audited-latest.json' &&
+              cert.spot_series_audited === 6 &&
+              cert.spot_mathematical_status === 'PASS' &&
+              cert.spot_integrity_status === 'PASS' &&
+              cert.bitget_futures_series_audited === 6 &&
+              cert.bitget_futures_mathematical_status === 'PASS' &&
+              cert.bitget_futures_integrity_status === 'PASS' &&
+              cert.binance_futures_audited === false;
 
             const expectedKeys = [
-              'BTCUSDT:15m',
-              'BTCUSDT:1h',
-              'BTCUSDT:4h',
-              'ETHUSDT:15m',
-              'ETHUSDT:1h',
-              'ETHUSDT:4h'
+              'BTCUSDT:15m', 'BTCUSDT:1h', 'BTCUSDT:4h',
+              'ETHUSDT:15m', 'ETHUSDT:1h', 'ETHUSDT:4h'
             ].sort();
 
-            function validRecords(records, market, exchange) {
-              if (
-                !Array.isArray(records) ||
-                records.length !== 6
-              ) {
+            function completeMarket(rows, market, exchange) {
+              if (!Array.isArray(rows) || rows.length !== 6) {
                 return false;
               }
-
               const keys = [];
-
-              for (const record of records) {
+              for (const r of rows) {
                 if (
-                  record.status !== 'verified' ||
-                  record.market !== market ||
-                  record.exchange !== exchange ||
-                  record.closed_candles_used !== 499
+                  r.status !== 'verified' ||
+                  r.market !== market ||
+                  r.exchange !== exchange ||
+                  r.closed_candles_used !== 499
                 ) {
                   return false;
                 }
-
-                keys.push(
-                  record.symbol + ':' + record.interval
-                );
+                keys.push(r.symbol + ':' + r.interval);
               }
-
               return JSON.stringify(keys.sort()) ===
                 JSON.stringify(expectedKeys);
             }
 
-            checks.spot_coverage_ok =
-              validRecords(
-                snapshot.results,
-                'spot',
-                'binance'
-              );
-
-            checks.bitget_coverage_ok =
-              validRecords(
-                snapshot.bitget_futures_results,
+            const historicalCoverage =
+              completeMarket(audited.results, 'spot', 'binance') &&
+              completeMarket(
+                audited.bitget_futures_results,
                 'bitget_usdt_futures',
                 'bitget'
               );
 
-            checks.certificate_pass =
-              certificate.certificate_status === 'PASS' &&
-              certificate.independent_audit === true &&
-              certificate.audit_version === '4.0' &&
-              certificate.spot_series_audited === 6 &&
-              certificate.spot_mathematical_status === 'PASS' &&
-              certificate.spot_integrity_status === 'PASS' &&
-              certificate.bitget_futures_series_audited === 6 &&
-              certificate.bitget_futures_mathematical_status === 'PASS' &&
-              certificate.bitget_futures_integrity_status === 'PASS' &&
-              certificate.binance_futures_audited === false;
+            const historicalValid =
+              schemasOK &&
+              historicalHashMatches &&
+              historicalDateMatches &&
+              certificatePass &&
+              historicalCoverage &&
+              Number.isFinite(Date.parse(cert.audited_at_utc));
 
-            for (const [name, passed] of Object.entries(checks)) {
-              if (!passed) {
-                reasons.push(name);
-              }
-            }
+            const currentMatches =
+              latestHash === auditedHash;
+
+            const certifiedCurrent =
+              historicalValid &&
+              currentMatches &&
+              latestCurrent &&
+              auditedCurrent;
 
             let status;
 
-            if (!checks.hash_matches) {
-              status = 'CERTIFICATE_MISMATCH';
-            } else if (reasons.length === 0) {
+            if (!historicalValid) {
+              status = 'INVALID_CERTIFICATE';
+            } else if (certifiedCurrent) {
               status = 'CERTIFIED_CURRENT';
+            } else if (latestCurrent) {
+              status = 'CURRENT_NOT_CERTIFIED';
             } else {
-              status = 'NOT_CERTIFIED';
+              status = 'HISTORICAL_AUDIT_PASS';
             }
 
             const result = {
-              schema: 'binance-gpt-verification-v1',
+              schema: 'binance-gpt-verification-v2',
               verification_status: status,
-              verified_at_utc: now.toISOString(),
-              verified_branch_commit: commitSha,
-              snapshot_generated_at_utc:
-                snapshot.generated_at_utc,
-              certificate_generated_at_utc:
-                certificate.json_generated_at_utc,
-              snapshot_age_seconds:
-                Number.isFinite(ageSeconds)
-                  ? Math.round(ageSeconds * 10) / 10
-                  : null,
-              calculated_snapshot_sha256:
-                calculatedHash,
-              certified_snapshot_sha256:
-                certificate.snapshot_sha256,
-              checks,
-              reasons,
+              historical_audit_status:
+                historicalValid ? 'PASS' : 'FAIL',
+              current_snapshot_certified: certifiedCurrent,
+              latest_freshness:
+                latestCurrent ? 'CURRENT' : (
+                  Number.isFinite(latestAge) &&
+                  latestAge >= 0 && latestAge <= 600
+                    ? 'DELAYED'
+                    : 'STALE_OR_INVALID'
+                ),
+              verified_at_utc: new Date(now).toISOString(),
+              branch_commit: commit,
+              latest_generated_at_utc:
+                latest.generated_at_utc,
+              audited_generated_at_utc:
+                audited.generated_at_utc,
+              latest_age_seconds:
+                Number.isFinite(latestAge)
+                  ? Math.round(latestAge * 10) / 10 : null,
+              audited_age_seconds:
+                Number.isFinite(auditedAge)
+                  ? Math.round(auditedAge * 10) / 10 : null,
+              checks: {
+                schemas_ok: schemasOK,
+                historical_hash_matches:
+                  historicalHashMatches,
+                historical_timestamp_matches:
+                  historicalDateMatches,
+                certificate_pass: certificatePass,
+                historical_coverage_ok:
+                  historicalCoverage,
+                latest_hash_matches_audited:
+                  currentMatches,
+                latest_current: latestCurrent,
+                audited_current: auditedCurrent
+              },
+              hashes: {
+                latest_sha256: latestHash,
+                audited_sha256: auditedHash,
+                certificate_snapshot_sha256:
+                  cert.snapshot_sha256
+              },
               note:
-                'Este resultado verifica la correspondencia ' +
-                'entre el JSON y el certificado publicado. ' +
-                'No ejecuta nuevamente la auditoria ' +
-                'matematica ni constituye una senal de trading.'
+                'La certificacion historica solo cubre ' +
+                'audited-latest.json. CERTIFIED_CURRENT ' +
+                'requiere coincidencia exacta y frescura.'
             };
 
             fs.writeFileSync(
@@ -213,18 +229,12 @@ jobs:
               JSON.stringify(result, null, 2) + '\n'
             );
 
-            core.info(
-              JSON.stringify(result, null, 2)
-            );
+            core.info(JSON.stringify(result, null, 2));
 
-            if (status !== 'CERTIFIED_CURRENT') {
-              core.warning(
-                'Instantanea NO certificada: ' + status
-              );
+            if (status === 'INVALID_CERTIFICATE') {
+              core.setFailed('Certificado historico invalido');
             } else {
-              core.info(
-                'CERTIFIED_CURRENT: hash y controles OK'
-              );
+              core.info('Verificacion completada: ' + status);
             }
 
       - name: Guardar verificacion
