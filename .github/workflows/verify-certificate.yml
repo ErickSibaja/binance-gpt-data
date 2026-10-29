@@ -1,0 +1,237 @@
+
+name: Binance GPT - verificar certificado
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Verificar certificado SHA256
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const crypto = require('crypto');
+            const { owner, repo } = context.repo;
+
+            const now = new Date();
+            const checks = {};
+            const reasons = [];
+
+            const ref = await github.rest.git.getRef({
+              owner,
+              repo,
+              ref: 'heads/data'
+            });
+
+            const commitSha = ref.data.object.sha;
+
+            async function readFile(path) {
+              const response =
+                await github.rest.repos.getContent({
+                  owner,
+                  repo,
+                  path,
+                  ref: commitSha
+                });
+
+              if (
+                Array.isArray(response.data) ||
+                response.data.encoding !== 'base64' ||
+                !response.data.content
+              ) {
+                throw new Error(
+                  'No se pudo leer ' + path
+                );
+              }
+
+              return Buffer.from(
+                response.data.content.replace(/\s/g, ''),
+                'base64'
+              );
+            }
+
+            const snapshotBytes =
+              await readFile('latest.json');
+
+            const certificateBytes =
+              await readFile('audit-latest.json');
+
+            const snapshot =
+              JSON.parse(snapshotBytes.toString('utf8'));
+
+            const certificate =
+              JSON.parse(certificateBytes.toString('utf8'));
+
+            const calculatedHash = crypto
+              .createHash('sha256')
+              .update(snapshotBytes)
+              .digest('hex');
+
+            const hashMatches =
+              calculatedHash ===
+              certificate.snapshot_sha256;
+
+            checks.hash_matches = hashMatches;
+
+            checks.schema_ok =
+              snapshot.schema ===
+                'binance-gpt-market-data-v1' &&
+              certificate.schema ===
+                'binance-gpt-audit-certificate-v1';
+
+            checks.timestamp_matches =
+              snapshot.generated_at_utc ===
+              certificate.json_generated_at_utc;
+
+            const generatedMs =
+              Date.parse(snapshot.generated_at_utc);
+
+            const ageSeconds =
+              (now.getTime() - generatedMs) / 1000;
+
+            checks.freshness_ok =
+              Number.isFinite(ageSeconds) &&
+              ageSeconds >= 0 &&
+              ageSeconds <= 300;
+
+            const expectedKeys = [
+              'BTCUSDT:15m',
+              'BTCUSDT:1h',
+              'BTCUSDT:4h',
+              'ETHUSDT:15m',
+              'ETHUSDT:1h',
+              'ETHUSDT:4h'
+            ].sort();
+
+            function validRecords(records, market, exchange) {
+              if (
+                !Array.isArray(records) ||
+                records.length !== 6
+              ) {
+                return false;
+              }
+
+              const keys = [];
+
+              for (const record of records) {
+                if (
+                  record.status !== 'verified' ||
+                  record.market !== market ||
+                  record.exchange !== exchange ||
+                  record.closed_candles_used !== 499
+                ) {
+                  return false;
+                }
+
+                keys.push(
+                  record.symbol + ':' + record.interval
+                );
+              }
+
+              return JSON.stringify(keys.sort()) ===
+                JSON.stringify(expectedKeys);
+            }
+
+            checks.spot_coverage_ok =
+              validRecords(
+                snapshot.results,
+                'spot',
+                'binance'
+              );
+
+            checks.bitget_coverage_ok =
+              validRecords(
+                snapshot.bitget_futures_results,
+                'bitget_usdt_futures',
+                'bitget'
+              );
+
+            checks.certificate_pass =
+              certificate.certificate_status === 'PASS' &&
+              certificate.independent_audit === true &&
+              certificate.audit_version === '4.0' &&
+              certificate.spot_series_audited === 6 &&
+              certificate.spot_mathematical_status === 'PASS' &&
+              certificate.spot_integrity_status === 'PASS' &&
+              certificate.bitget_futures_series_audited === 6 &&
+              certificate.bitget_futures_mathematical_status === 'PASS' &&
+              certificate.bitget_futures_integrity_status === 'PASS' &&
+              certificate.binance_futures_audited === false;
+
+            for (const [name, passed] of Object.entries(checks)) {
+              if (!passed) {
+                reasons.push(name);
+              }
+            }
+
+            let status;
+
+            if (!checks.hash_matches) {
+              status = 'CERTIFICATE_MISMATCH';
+            } else if (reasons.length === 0) {
+              status = 'CERTIFIED_CURRENT';
+            } else {
+              status = 'NOT_CERTIFIED';
+            }
+
+            const result = {
+              schema: 'binance-gpt-verification-v1',
+              verification_status: status,
+              verified_at_utc: now.toISOString(),
+              verified_branch_commit: commitSha,
+              snapshot_generated_at_utc:
+                snapshot.generated_at_utc,
+              certificate_generated_at_utc:
+                certificate.json_generated_at_utc,
+              snapshot_age_seconds:
+                Number.isFinite(ageSeconds)
+                  ? Math.round(ageSeconds * 10) / 10
+                  : null,
+              calculated_snapshot_sha256:
+                calculatedHash,
+              certified_snapshot_sha256:
+                certificate.snapshot_sha256,
+              checks,
+              reasons,
+              note:
+                'Este resultado verifica la correspondencia ' +
+                'entre el JSON y el certificado publicado. ' +
+                'No ejecuta nuevamente la auditoria ' +
+                'matematica ni constituye una senal de trading.'
+            };
+
+            fs.writeFileSync(
+              'verification-result.json',
+              JSON.stringify(result, null, 2) + '\n'
+            );
+
+            core.info(
+              JSON.stringify(result, null, 2)
+            );
+
+            if (status !== 'CERTIFIED_CURRENT') {
+              core.warning(
+                'Instantanea NO certificada: ' + status
+              );
+            } else {
+              core.info(
+                'CERTIFIED_CURRENT: hash y controles OK'
+              );
+            }
+
+      - name: Guardar verificacion
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: binance-gpt-verification
+          path: verification-result.json
+          if-no-files-found: warn
+          retention-days: 7
