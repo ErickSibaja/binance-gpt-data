@@ -77,6 +77,15 @@ jobs:
             --output history/stc01-skipped-audit.json
 
 
+      - name: Auditar riesgo intraposicion
+        working-directory: stc01
+        run: |
+          python audit_risk_stc01.py \
+            --m15 history/BTCUSDT_spot_15m.csv \
+            --result history/stc01-btc-spot-result.json \
+            --output history/stc01-risk-audit.json
+
+
       - name: Guardar resultados y auditorías
         if: always()
         uses: actions/upload-artifact@v4
