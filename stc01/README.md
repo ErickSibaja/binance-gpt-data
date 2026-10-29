@@ -1,0 +1,1 @@
+Motor de análisis y backtesting STC-01 para Binance GPT.
