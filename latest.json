@@ -1,6 +1,6 @@
 {
   "schema": "binance-gpt-market-data-v1",
-  "generated_at_utc": "2026-10-29T14:45:50.553000Z",
+  "generated_at_utc": "2026-10-29T14:50:26.779000Z",
   "timezone_for_reports": "America/Costa_Rica",
   "read_only": true,
   "warning": "Datos de velas cerradas, no precios live. Binance Spot y Bitget Futuros son mercados distintos. Sin acceso a cuentas u operaciones.",
@@ -27,7 +27,7 @@
       "rsi14_wilder": 75.2415,
       "volume_average_20": 172.176978,
       "volume_ratio_20": 5.4587,
-      "age_seconds_at_collection": 17.7,
+      "age_seconds_at_collection": 316.5,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
@@ -56,7 +56,7 @@
       "rsi14_wilder": 46.986,
       "volume_average_20": 593.2630955,
       "volume_ratio_20": 1.3366,
-      "age_seconds_at_collection": 2717.7,
+      "age_seconds_at_collection": 3016.5,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
@@ -85,7 +85,7 @@
       "rsi14_wilder": 45.0533,
       "volume_average_20": 2251.620521,
       "volume_ratio_20": 0.8517,
-      "age_seconds_at_collection": 9917.7,
+      "age_seconds_at_collection": 10216.5,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
@@ -114,7 +114,7 @@
       "rsi14_wilder": 68.7002,
       "volume_average_20": 1973.597105,
       "volume_ratio_20": 5.03,
-      "age_seconds_at_collection": 17.7,
+      "age_seconds_at_collection": 316.5,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
@@ -143,7 +143,7 @@
       "rsi14_wilder": 46.8852,
       "volume_average_20": 8965.506105,
       "volume_ratio_20": 0.9938,
-      "age_seconds_at_collection": 2717.7,
+      "age_seconds_at_collection": 3016.5,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
@@ -172,7 +172,181 @@
       "rsi14_wilder": 44.8761,
       "volume_average_20": 31522.019815,
       "volume_ratio_20": 0.6958,
-      "age_seconds_at_collection": 9917.7,
+      "age_seconds_at_collection": 10216.5,
+      "method": {
+        "ema": "SMA inicial y EMA recursiva",
+        "rsi": "Wilder 14 recursivo",
+        "volume": "Volumen base / promedio 20 velas"
+      }
+    },
+    {
+      "status": "verified",
+      "exchange": "binance",
+      "symbol": "BTCUSDT",
+      "market": "futures_usdm",
+      "interval": "15m",
+      "source_url": "https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=15m&limit=500",
+      "last_closed_candle_open_utc": "2026-10-29T14:30:00Z",
+      "last_closed_candle_close_utc": "2026-10-29T14:44:59.999000Z",
+      "closed_candles_used": 499,
+      "last_close": 81207.8,
+      "last_open": 80399.9,
+      "last_high": 81514.2,
+      "last_low": 80374.7,
+      "last_volume_base": 14831.337,
+      "last_volume_quote": 1202872586.9986,
+      "ema9": 80421.39666388,
+      "ema21": 80261.72257581,
+      "ema200": 80489.93731313,
+      "rsi14_wilder": 75.2165,
+      "volume_average_20": 1882.73045,
+      "volume_ratio_20": 7.8776,
+      "age_seconds_at_collection": 316.5,
+      "method": {
+        "ema": "SMA inicial y EMA recursiva",
+        "rsi": "Wilder 14 recursivo",
+        "volume": "Volumen base / promedio 20 velas"
+      }
+    },
+    {
+      "status": "verified",
+      "exchange": "binance",
+      "symbol": "BTCUSDT",
+      "market": "futures_usdm",
+      "interval": "1h",
+      "source_url": "https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=1h&limit=500",
+      "last_closed_candle_open_utc": "2026-10-29T13:00:00Z",
+      "last_closed_candle_close_utc": "2026-10-29T13:59:59.999000Z",
+      "closed_candles_used": 499,
+      "last_close": 80275.1,
+      "last_open": 80026.2,
+      "last_high": 80392.1,
+      "last_low": 79878.5,
+      "last_volume_base": 9006.26,
+      "last_volume_quote": 721627145.2936,
+      "ema9": 80177.56311099,
+      "ema21": 80359.34729114,
+      "ema200": 80930.99685853,
+      "rsi14_wilder": 47.1064,
+      "volume_average_20": 6110.34695,
+      "volume_ratio_20": 1.4739,
+      "age_seconds_at_collection": 3016.5,
+      "method": {
+        "ema": "SMA inicial y EMA recursiva",
+        "rsi": "Wilder 14 recursivo",
+        "volume": "Volumen base / promedio 20 velas"
+      }
+    },
+    {
+      "status": "verified",
+      "exchange": "binance",
+      "symbol": "BTCUSDT",
+      "market": "futures_usdm",
+      "interval": "4h",
+      "source_url": "https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=4h&limit=500",
+      "last_closed_candle_open_utc": "2026-10-29T08:00:00Z",
+      "last_closed_candle_close_utc": "2026-10-29T11:59:59.999000Z",
+      "closed_candles_used": 499,
+      "last_close": 80130.9,
+      "last_open": 79820.0,
+      "last_high": 80345.0,
+      "last_low": 79808.9,
+      "last_volume_base": 14471.058,
+      "last_volume_quote": 1159368664.9855,
+      "ema9": 80469.36166192,
+      "ema21": 80567.65603246,
+      "ema200": 81522.1913382,
+      "rsi14_wilder": 45.0027,
+      "volume_average_20": 19575.36495,
+      "volume_ratio_20": 0.7392,
+      "age_seconds_at_collection": 10216.5,
+      "method": {
+        "ema": "SMA inicial y EMA recursiva",
+        "rsi": "Wilder 14 recursivo",
+        "volume": "Volumen base / promedio 20 velas"
+      }
+    },
+    {
+      "status": "verified",
+      "exchange": "binance",
+      "symbol": "ETHUSDT",
+      "market": "futures_usdm",
+      "interval": "15m",
+      "source_url": "https://fapi.binance.com/fapi/v1/klines?symbol=ETHUSDT&interval=15m&limit=500",
+      "last_closed_candle_open_utc": "2026-10-29T14:30:00Z",
+      "last_closed_candle_close_utc": "2026-10-29T14:44:59.999000Z",
+      "closed_candles_used": 499,
+      "last_close": 2345.67,
+      "last_open": 2328.34,
+      "last_high": 2352.9,
+      "last_low": 2327.74,
+      "last_volume_base": 209134.855,
+      "last_volume_quote": 490074505.10486,
+      "ema9": 2329.17958067,
+      "ema21": 2325.13746338,
+      "ema200": 2334.19707518,
+      "rsi14_wilder": 68.5288,
+      "volume_average_20": 37891.10335,
+      "volume_ratio_20": 5.5194,
+      "age_seconds_at_collection": 316.5,
+      "method": {
+        "ema": "SMA inicial y EMA recursiva",
+        "rsi": "Wilder 14 recursivo",
+        "volume": "Volumen base / promedio 20 velas"
+      }
+    },
+    {
+      "status": "verified",
+      "exchange": "binance",
+      "symbol": "ETHUSDT",
+      "market": "futures_usdm",
+      "interval": "1h",
+      "source_url": "https://fapi.binance.com/fapi/v1/klines?symbol=ETHUSDT&interval=1h&limit=500",
+      "last_closed_candle_open_utc": "2026-10-29T13:00:00Z",
+      "last_closed_candle_close_utc": "2026-10-29T13:59:59.999000Z",
+      "closed_candles_used": 499,
+      "last_close": 2326.36,
+      "last_open": 2322.14,
+      "last_high": 2331.5,
+      "last_low": 2312.25,
+      "last_volume_base": 175849.995,
+      "last_volume_quote": 408506710.57763,
+      "ema9": 2323.62105925,
+      "ema21": 2329.29223081,
+      "ema200": 2361.44016972,
+      "rsi14_wilder": 46.9897,
+      "volume_average_20": 149668.96445,
+      "volume_ratio_20": 1.1749,
+      "age_seconds_at_collection": 3016.5,
+      "method": {
+        "ema": "SMA inicial y EMA recursiva",
+        "rsi": "Wilder 14 recursivo",
+        "volume": "Volumen base / promedio 20 velas"
+      }
+    },
+    {
+      "status": "verified",
+      "exchange": "binance",
+      "symbol": "ETHUSDT",
+      "market": "futures_usdm",
+      "interval": "4h",
+      "source_url": "https://fapi.binance.com/fapi/v1/klines?symbol=ETHUSDT&interval=4h&limit=500",
+      "last_closed_candle_open_utc": "2026-10-29T08:00:00Z",
+      "last_closed_candle_close_utc": "2026-10-29T11:59:59.999000Z",
+      "closed_candles_used": 499,
+      "last_close": 2324.26,
+      "last_open": 2309.1,
+      "last_high": 2330.05,
+      "last_low": 2308.88,
+      "last_volume_base": 409016.244,
+      "last_volume_quote": 949400649.21983,
+      "ema9": 2333.67049308,
+      "ema21": 2339.85201159,
+      "ema200": 2451.26923973,
+      "rsi14_wilder": 44.8828,
+      "volume_average_20": 485882.01725,
+      "volume_ratio_20": 0.8418,
+      "age_seconds_at_collection": 10216.5,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
@@ -180,46 +354,9 @@
       }
     }
   ],
-  "errors": [
-    {
-      "market": "futures_usdm",
-      "symbol": "BTCUSDT",
-      "interval": "15m",
-      "error": "Binance: HTTPError: HTTP Error 451: "
-    },
-    {
-      "market": "futures_usdm",
-      "symbol": "BTCUSDT",
-      "interval": "1h",
-      "error": "Binance: HTTPError: HTTP Error 451: "
-    },
-    {
-      "market": "futures_usdm",
-      "symbol": "BTCUSDT",
-      "interval": "4h",
-      "error": "Binance: HTTPError: HTTP Error 451: "
-    },
-    {
-      "market": "futures_usdm",
-      "symbol": "ETHUSDT",
-      "interval": "15m",
-      "error": "Binance: HTTPError: HTTP Error 451: "
-    },
-    {
-      "market": "futures_usdm",
-      "symbol": "ETHUSDT",
-      "interval": "1h",
-      "error": "Binance: HTTPError: HTTP Error 451: "
-    },
-    {
-      "market": "futures_usdm",
-      "symbol": "ETHUSDT",
-      "interval": "4h",
-      "error": "Binance: HTTPError: HTTP Error 451: "
-    }
-  ],
-  "complete": false,
-  "status": "partial",
+  "errors": [],
+  "complete": true,
+  "status": "complete",
   "expected_series": 12,
   "bitget_futures_results": [
     {
@@ -244,7 +381,7 @@
       "rsi14_wilder": 75.1181,
       "volume_average_20": 430.52809,
       "volume_ratio_20": 9.6762,
-      "age_seconds_at_collection": 17.7,
+      "age_seconds_at_collection": 316.5,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
@@ -275,7 +412,7 @@
       "rsi14_wilder": 46.916,
       "volume_average_20": 1429.15427,
       "volume_ratio_20": 1.2083,
-      "age_seconds_at_collection": 2717.7,
+      "age_seconds_at_collection": 3016.5,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
@@ -306,7 +443,7 @@
       "rsi14_wilder": 44.9844,
       "volume_average_20": 5008.821265,
       "volume_ratio_20": 0.6251,
-      "age_seconds_at_collection": 9917.7,
+      "age_seconds_at_collection": 10216.5,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
@@ -337,7 +474,7 @@
       "rsi14_wilder": 68.6974,
       "volume_average_20": 9457.247,
       "volume_ratio_20": 5.9635,
-      "age_seconds_at_collection": 17.7,
+      "age_seconds_at_collection": 316.5,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
@@ -368,7 +505,7 @@
       "rsi14_wilder": 46.738,
       "volume_average_20": 36601.676,
       "volume_ratio_20": 1.224,
-      "age_seconds_at_collection": 2717.7,
+      "age_seconds_at_collection": 3016.5,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
@@ -399,7 +536,7 @@
       "rsi14_wilder": 44.7525,
       "volume_average_20": 112310.418,
       "volume_ratio_20": 0.8435,
-      "age_seconds_at_collection": 9917.7,
+      "age_seconds_at_collection": 10216.5,
       "method": {
         "ema": "SMA inicial y EMA recursiva",
         "rsi": "Wilder 14 recursivo",
@@ -411,8 +548,8 @@
   ],
   "bitget_futures_errors": [],
   "bitget_futures_expected_series": 6,
-  "verified_series": 6,
-  "unavailable_series": 6,
+  "verified_series": 12,
+  "unavailable_series": 0,
   "bitget_futures_verified_series": 6,
   "bitget_futures_unavailable_series": 0,
   "bitget_futures_complete": true,
