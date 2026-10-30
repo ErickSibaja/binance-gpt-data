@@ -1,0 +1,49 @@
+name: Binance GPT - STC02 Breakout Spot Research
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Pruebas STC02
+        run: python -m unittest discover -s stc02 -p 'test_stc02.py' -v
+      - name: Descargar historico BTC Spot
+        run: |
+          python stc01/fetch_history.py --symbol BTCUSDT \
+            --start 2025-08-01T00:00:00Z --end 2026-10-01T00:00:00Z \
+            --outdir stc02/history/btc
+      - name: Backtest STC02 BTC Spot
+        run: |
+          python stc02/backtest_stc02.py \
+            --15m stc02/history/btc/BTCUSDT_spot_15m.csv \
+            --1h stc02/history/btc/BTCUSDT_spot_1h.csv \
+            --4h stc02/history/btc/BTCUSDT_spot_4h.csv \
+            --evaluation-start 2025-10-01T00:00:00Z \
+            --output stc02/history/btc/stc02-btc-result.json
+      - name: Descargar historico ETH Spot
+        run: |
+          python stc01/fetch_history.py --symbol ETHUSDT \
+            --start 2025-08-01T00:00:00Z --end 2026-10-01T00:00:00Z \
+            --outdir stc02/history/eth
+      - name: Backtest STC02 ETH Spot
+        run: |
+          python stc02/backtest_stc02.py \
+            --15m stc02/history/eth/ETHUSDT_spot_15m.csv \
+            --1h stc02/history/eth/ETHUSDT_spot_1h.csv \
+            --4h stc02/history/eth/ETHUSDT_spot_4h.csv \
+            --evaluation-start 2025-10-01T00:00:00Z \
+            --output stc02/history/eth/stc02-eth-result.json
+      - name: Publicar artefacto investigacion
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stc02-btc-eth-research
+          path: stc02/history/
+          retention-days: 14
+          if-no-files-found: warn
