@@ -1,0 +1,51 @@
+name: Binance GPT - STC04 sensibilidad BTC ETH
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sensitivity:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        symbol: [BTCUSDT, ETHUSDT]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Descargar velas diarias de Binance Spot
+        run: |
+          python stc04/fetch_daily_stc04.py \
+            --symbol '${{ matrix.symbol }}' \
+            --start 2024-01-01T00:00:00Z \
+            --end 2026-10-01T00:00:00Z \
+            --outdir stc04/history
+      - name: Sensibilidad ventana 2024-2025
+        working-directory: stc04
+        run: |
+          python sensitivity_stc04.py \
+            --csv history/${{ matrix.symbol }}_spot_1d.csv \
+            --evaluation-start 2024-10-01T00:00:00Z \
+            --evaluation-end 2025-10-01T00:00:00Z \
+            --output history/${{ matrix.symbol }}-sensitivity-2024-2025.json
+      - name: Sensibilidad ventana 2025-2026
+        working-directory: stc04
+        run: |
+          python sensitivity_stc04.py \
+            --csv history/${{ matrix.symbol }}_spot_1d.csv \
+            --evaluation-start 2025-10-01T00:00:00Z \
+            --evaluation-end 2026-10-01T00:00:00Z \
+            --output history/${{ matrix.symbol }}-sensitivity-2025-2026.json
+      - name: Guardar resultados de sensibilidad
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stc04-${{ matrix.symbol }}-sensitivity
+          path: stc04/history/
+          if-no-files-found: warn
+          retention-days: 14
