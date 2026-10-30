@@ -45,6 +45,22 @@ jobs:
             --evaluation-end 2026-10-01T00:00:00Z \
             --fee-bps 10 --slippage-bps 5 \
             --output history/${{ matrix.symbol }}-2025-2026.json
+      - name: Auditar independientemente ventana 2024-2025
+        working-directory: stc04
+        run: |
+          python audit_stc04.py \
+            --csv history/${{ matrix.symbol }}_spot_1d.csv \
+            --manifest history/${{ matrix.symbol }}-manifest.json \
+            --result history/${{ matrix.symbol }}-2024-2025.json \
+            --output history/${{ matrix.symbol }}-2024-2025-audit.json
+      - name: Auditar independientemente ventana 2025-2026
+        working-directory: stc04
+        run: |
+          python audit_stc04.py \
+            --csv history/${{ matrix.symbol }}_spot_1d.csv \
+            --manifest history/${{ matrix.symbol }}-manifest.json \
+            --result history/${{ matrix.symbol }}-2025-2026.json \
+            --output history/${{ matrix.symbol }}-2025-2026-audit.json
       - name: Guardar artefactos STC04
         if: always()
         uses: actions/upload-artifact@v4
