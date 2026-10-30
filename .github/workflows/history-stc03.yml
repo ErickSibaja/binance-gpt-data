@@ -30,6 +30,24 @@ jobs:
         run: |
           python stc03/backtest_stc03.py --symbol BTCUSDT --15m stc03/history/BTCUSDT/BTCUSDT_spot_15m.csv --1h stc03/history/BTCUSDT/BTCUSDT_spot_1h.csv --4h stc03/history/BTCUSDT/BTCUSDT_spot_4h.csv --evaluation-start 2025-10-01T00:00:00Z --fee-bps 10 --slippage-bps 5 --output stc03/results/BTCUSDT.json
           python stc03/backtest_stc03.py --symbol ETHUSDT --15m stc03/history/ETHUSDT/ETHUSDT_spot_15m.csv --1h stc03/history/ETHUSDT/ETHUSDT_spot_1h.csv --4h stc03/history/ETHUSDT/ETHUSDT_spot_4h.csv --evaluation-start 2025-10-01T00:00:00Z --fee-bps 10 --slippage-bps 5 --output stc03/results/ETHUSDT.json
+      - name: Independent STC03 audit BTC and ETH
+        env:
+          PYTHONPATH: stc01:stc03
+        run: |
+          python stc03/audit_stc03.py \
+            --symbol BTCUSDT \
+            --m15 stc03/history/BTCUSDT/BTCUSDT_spot_15m.csv \
+            --h1 stc03/history/BTCUSDT/BTCUSDT_spot_1h.csv \
+            --h4 stc03/history/BTCUSDT/BTCUSDT_spot_4h.csv \
+            --result stc03/results/BTCUSDT.json \
+            --output stc03/results/BTCUSDT-audit.json
+          python stc03/audit_stc03.py \
+            --symbol ETHUSDT \
+            --m15 stc03/history/ETHUSDT/ETHUSDT_spot_15m.csv \
+            --h1 stc03/history/ETHUSDT/ETHUSDT_spot_1h.csv \
+            --h4 stc03/history/ETHUSDT/ETHUSDT_spot_4h.csv \
+            --result stc03/results/ETHUSDT.json \
+            --output stc03/results/ETHUSDT-audit.json
       - name: Artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -38,5 +56,6 @@ jobs:
           path: |
             stc03/results/
             stc03/history/*/manifest.json
+            stc03/history/*/*.csv
           retention-days: 14
           if-no-files-found: warn
