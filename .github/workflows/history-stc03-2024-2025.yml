@@ -40,6 +40,7 @@ jobs:
             --h1 stc03/history_previous/BTCUSDT/BTCUSDT_spot_1h.csv \
             --h4 stc03/history_previous/BTCUSDT/BTCUSDT_spot_4h.csv \
             --result stc03/results_previous/BTCUSDT.json \
+            --evaluation-start 2024-10-01T00:00:00Z \
             --output stc03/results_previous/BTCUSDT-audit.json
           python stc03/audit_stc03.py \
             --symbol ETHUSDT \
@@ -47,6 +48,7 @@ jobs:
             --h1 stc03/history_previous/ETHUSDT/ETHUSDT_spot_1h.csv \
             --h4 stc03/history_previous/ETHUSDT/ETHUSDT_spot_4h.csv \
             --result stc03/results_previous/ETHUSDT.json \
+            --evaluation-start 2024-10-01T00:00:00Z \
             --output stc03/results_previous/ETHUSDT-audit.json
       - name: Artifacts
         if: always()
