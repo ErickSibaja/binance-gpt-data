@@ -1,0 +1,7 @@
+# STC-04 v1 — Momentum diario (investigación exclusivamente)
+
+Reglas congeladas antes de ejecutar: al cierre diario UTC, mantener inversión Spot si cierre > SMA200 de 200 cierres (incluido día de señal) Y cierre / cierre de hace 60 días - 1 > 0; entrar/salir en apertura UTC del día siguiente. Long-only, asignación de todo el capital disponible (no se pretende mantener el riesgo de 0,5 % de STC-01). Comisiones 10 bps por lado, deslizamiento 5 bps por lado. No stop-loss; riesgo de mercado puede ser alto. Sin margen, sin shorts ni órdenes reales.
+
+La simulación conserva estados independientes por ventana; una posición abierta al final se valora al último cierre sin inventar su venta ni su comisión de salida. Comparación buy-and-hold con misma valoración del cierre. El drawdown es diario al cierre, no intravela. Dos ventanas históricas son **exploratorias**: ya se han observado al investigar STC anteriores. Requiere auditoría independiente y evaluación prospectiva antes de considerar uso real. El motor no conoce cantidades mínimas de Binance, impuestos, liquidación, deslizamiento real ni latencia. Descarga solo velas cerradas de la API pública de Binance y falla ante faltantes; los datos se guardan con manifiesto SHA256.
+
+Archivos en `stc04/`: `strategy_stc04.py`, `backtest_stc04.py`, `fetch_daily_stc04.py`, `test_stc04.py`. Workflow GitHub manual: `.github/workflows/history-stc04.yml`. Pueden subirse sin modificar STC anteriores.
