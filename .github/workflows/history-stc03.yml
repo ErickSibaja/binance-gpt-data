@@ -1,0 +1,42 @@
+name: Binance GPT - STC03 Mean Reversion Research
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Unit tests
+        env:
+          PYTHONPATH: stc01:stc03
+        run: python -m unittest discover -s stc03 -p 'test_stc03.py' -v
+      - name: Download BTC and ETH OHLCV
+        run: |
+          python stc01/fetch_history.py --symbol BTCUSDT --start 2025-08-01T00:00:00Z --end 2026-10-01T00:00:00Z --outdir stc03/history/BTCUSDT
+          python stc01/fetch_history.py --symbol ETHUSDT --start 2025-08-01T00:00:00Z --end 2026-10-01T00:00:00Z --outdir stc03/history/ETHUSDT
+      - name: Run exploratory backtests
+        env:
+          PYTHONPATH: stc01:stc03
+        run: |
+          python stc03/backtest_stc03.py --symbol BTCUSDT --15m stc03/history/BTCUSDT/BTCUSDT_spot_15m.csv --1h stc03/history/BTCUSDT/BTCUSDT_spot_1h.csv --4h stc03/history/BTCUSDT/BTCUSDT_spot_4h.csv --evaluation-start 2025-10-01T00:00:00Z --fee-bps 10 --slippage-bps 5 --output stc03/results/BTCUSDT.json
+          python stc03/backtest_stc03.py --symbol ETHUSDT --15m stc03/history/ETHUSDT/ETHUSDT_spot_15m.csv --1h stc03/history/ETHUSDT/ETHUSDT_spot_1h.csv --4h stc03/history/ETHUSDT/ETHUSDT_spot_4h.csv --evaluation-start 2025-10-01T00:00:00Z --fee-bps 10 --slippage-bps 5 --output stc03/results/ETHUSDT.json
+      - name: Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stc03-btc-eth-research
+          path: |
+            stc03/results/
+            stc03/history/*/manifest.json
+          retention-days: 14
+          if-no-files-found: warn
