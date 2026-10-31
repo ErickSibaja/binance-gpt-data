@@ -1,0 +1,23 @@
+{
+  "schema": "stc04-paper-suite-v1",
+  "status": "INITIALIZED",
+  "new_candles_processed": 0,
+  "prospective_candles_total": 0,
+  "equity_marked": 10000.0,
+  "return_pct": 0.0,
+  "max_drawdown_daily_close_pct": 0.0,
+  "cash": 10000.0,
+  "units": {
+    "BTCUSDT": 0.0,
+    "ETHUSDT": 0.0
+  },
+  "last_closed_candle_utc": "2026-10-30T00:00:00+00:00",
+  "record_count": 1,
+  "ledger_tip_sha256": "690f6c72720289f9b1ef3741944bba3f09595dfda704d93ce67dad2b5243c47b",
+  "benchmark_passive_components_marked": {},
+  "limitations": [
+    "Fills at next candle open are registered only after that daily candle closes; not real-time executable fills.",
+    "One joint portfolio and no actual orders. No intraday drawdown or gap protection.",
+    "SHA-256 detects changes; Git history requires branch protection to resist rewriting."
+  ]
+}

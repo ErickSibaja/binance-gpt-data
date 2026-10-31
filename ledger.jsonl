@@ -1,0 +1,1 @@
+{"event":"INITIALIZE","execution_model":"retrospective next-open paper fills, registered after candle close","exposure_limit_per_asset":0.25,"last_processed_candle_utc":"2026-10-30T00:00:00+00:00","observed_at_utc":"2026-10-31T04:05:48.301783+00:00","previous_hash":"GENESIS","record_hash":"690f6c72720289f9b1ef3741944bba3f09595dfda704d93ce67dad2b5243c47b","starting_cash":10000.0}

@@ -1,0 +1,13 @@
+{
+  "schema": "stc04-baseline-v1",
+  "generated_utc": "2026-10-31T04:05:48.301783+00:00",
+  "windows": [
+    "2024-2025",
+    "2025-2026"
+  ],
+  "status": "PASS_WITH_LIMITATIONS",
+  "strategy_sha256": "f8c3b2059ad6074ef27398d94c33c6e08c6de24a7caeb4813f9d7f06599e53b4",
+  "backtest_sha256": "c31a01bd5a5368c28f4f72a53860bc556baa854ce2da843f648491b9d6f2178e",
+  "audit_sha256": "ccdfb26d1662174d80f93df13af364d29a2cab0bcdb9d3e440548a90ce430471",
+  "sensitivity_sha256": "710966cd801bbe22cf81373bd589842b3a1b930fe925a8f4e08a41a37623bb42"
+}
