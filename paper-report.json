@@ -1,8 +1,8 @@
 {
   "schema": "stc04-paper-suite-v1",
-  "status": "INITIALIZED",
-  "new_candles_processed": 0,
-  "prospective_candles_total": 0,
+  "status": "ACTIVE",
+  "new_candles_processed": 1,
+  "prospective_candles_total": 1,
   "equity_marked": 10000.0,
   "return_pct": 0.0,
   "max_drawdown_daily_close_pct": 0.0,
@@ -11,10 +11,13 @@
     "BTCUSDT": 0.0,
     "ETHUSDT": 0.0
   },
-  "last_closed_candle_utc": "2026-10-30T00:00:00+00:00",
-  "record_count": 1,
-  "ledger_tip_sha256": "690f6c72720289f9b1ef3741944bba3f09595dfda704d93ce67dad2b5243c47b",
-  "benchmark_passive_components_marked": {},
+  "last_closed_candle_utc": "2026-10-31T00:00:00+00:00",
+  "record_count": 2,
+  "ledger_tip_sha256": "5ec294d6d7347deb5803def3da66b393088f96ce2f9a3a881bcdb4bf03bcf02a",
+  "benchmark_passive_components_marked": {
+    "BTCUSDT": 2503.13507,
+    "ETHUSDT": 2507.504268
+  },
   "limitations": [
     "Fills at next candle open are registered only after that daily candle closes; not real-time executable fills.",
     "One joint portfolio and no actual orders. No intraday drawdown or gap protection.",
