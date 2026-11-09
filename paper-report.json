@@ -1,8 +1,8 @@
 {
   "schema": "stc04-paper-suite-v1",
   "status": "ACTIVE",
-  "new_candles_processed": 0,
-  "prospective_candles_total": 8,
+  "new_candles_processed": 1,
+  "prospective_candles_total": 9,
   "equity_marked": 9823.6873,
   "return_pct": -1.7631,
   "max_drawdown_daily_close_pct": 1.9699,
@@ -11,12 +11,12 @@
     "BTCUSDT": 0.0,
     "ETHUSDT": 0.0
   },
-  "last_closed_candle_utc": "2026-11-07T00:00:00+00:00",
-  "record_count": 9,
-  "ledger_tip_sha256": "4c7334c01d442902dea5c341067f3f13e1acb955542aa797d92334f4f36b31b5",
+  "last_closed_candle_utc": "2026-11-08T00:00:00+00:00",
+  "record_count": 10,
+  "ledger_tip_sha256": "6ddeefa7802d7e1de3e372e5f4d80b489755677157acba5134c6adc15bd530f5",
   "benchmark_passive_components_marked": {
-    "BTCUSDT": 2447.820065,
-    "ETHUSDT": 2490.362626
+    "BTCUSDT": 2415.034624,
+    "ETHUSDT": 2364.990747
   },
   "limitations": [
     "Fills at next candle open are registered only after that daily candle closes; not real-time executable fills.",
