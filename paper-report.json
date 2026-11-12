@@ -1,7 +1,7 @@
 {
   "schema": "stc04-paper-suite-v1",
   "status": "ACTIVE",
-  "new_candles_processed": 1,
+  "new_candles_processed": 0,
   "prospective_candles_total": 12,
   "equity_marked": 9823.6873,
   "return_pct": -1.7631,
