@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
   pages: write
   id-token: write
 
@@ -51,18 +52,6 @@ jobs:
                   entry['error']
               )
           PYCODE
-
-      - name: Preparar GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Publicar archivos de resultados
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: public
-
-      - name: Desplegar GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
 
       - name: Publicar JSON en rama data
         uses: actions/github-script@v7
@@ -150,3 +139,30 @@ jobs:
             core.info(
               `Publicado latest.json en ${branch}`
             );
+
+      - name: Preparar GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Publicar archivos de resultados
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+      - name: Esperar a que Pages pueda localizar el artefacto
+        uses: actions/github-script@v7
+        with:
+          script: |
+            for (let attempt = 0; attempt < 9; attempt++) {
+              const { data } = await github.rest.actions.listWorkflowRunArtifacts({
+                ...context.repo,
+                run_id: context.runId,
+                name: 'github-pages'
+              });
+              if (data.artifacts.some(a => a.name === 'github-pages' && !a.expired)) return;
+              if (attempt < 8) await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+            core.setFailed('GitHub Pages no encuentra el artefacto de esta ejecución.');
+
+      - name: Desplegar GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
