@@ -144,25 +144,38 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Publicar archivos de resultados
+        id: upload
         uses: actions/upload-pages-artifact@v3
         with:
           path: public
 
-      - name: Esperar a que Pages pueda localizar el artefacto
+      - name: Desplegar y verificar GitHub Pages
+        id: deployment
         uses: actions/github-script@v7
+        env:
+          PAGES_ARTIFACT_ID: ${{ steps.upload.outputs.artifact_id }}
         with:
           script: |
-            for (let attempt = 0; attempt < 9; attempt++) {
-              const { data } = await github.rest.actions.listWorkflowRunArtifacts({
-                ...context.repo,
-                run_id: context.runId,
-                name: 'github-pages'
-              });
-              if (data.artifacts.some(a => a.name === 'github-pages' && !a.expired)) return;
-              if (attempt < 8) await new Promise(resolve => setTimeout(resolve, 5000));
+            const artifactId = Number(process.env.PAGES_ARTIFACT_ID);
+            if (!Number.isSafeInteger(artifactId) || artifactId <= 0) {
+              throw new Error('La carga no devolvió un identificador de artefacto válido.');
             }
-            core.setFailed('GitHub Pages no encuentra el artefacto de esta ejecución.');
-
-      - name: Desplegar GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+            const token = await core.getIDToken();
+            core.setSecret(token);
+            const { data } = await github.request('POST /repos/{owner}/{repo}/pages/deployments', {
+              ...context.repo, artifact_id: artifactId, pages_build_version: context.sha, oidc_token: token
+            });
+            for (let attempt = 0; attempt < 60; attempt++) {
+              await new Promise(resolve => setTimeout(resolve, 5000));
+              const { data: deployment } = await github.request('GET /repos/{owner}/{repo}/pages/deployments/{deployment_id}', {
+                ...context.repo, deployment_id: data.id
+              });
+              if (deployment.status === 'succeed') {
+                core.setOutput('page_url', data.page_url);
+                return;
+              }
+              if (['deployment_failed', 'deployment_content_failed', 'deployment_cancelled', 'deployment_lost', 'failed', 'cancelled'].includes(deployment.status)) {
+                throw new Error('Pages: ' + deployment.status);
+              }
+            }
+            throw new Error('Pages no confirmó el despliegue en cinco minutos.');
